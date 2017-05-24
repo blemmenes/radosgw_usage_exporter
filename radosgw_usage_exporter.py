@@ -71,11 +71,11 @@ class RADOSGWCollector(object):
                                     'RADOSGW Usage number of successful opperations',
                                     labels=["bucket", "owner", "category"]),
             'bytes_sent':
-                CounterMetricFamily('radosgw_usage_sent_bytes',
+                CounterMetricFamily('radosgw_usage_sent_bytes_total',
                                     'RADOSGW Usage number of bytes sent by the RADOSGW',
                                     labels=["bucket", "owner", "category"]),
             'bytes_received':
-                CounterMetricFamily('radosgw_usage_received_bytes',
+                CounterMetricFamily('radosgw_usage_received_bytes_total',
                                     'RADOSGW Usage number of bytes received by the RADOSGW',
                                     labels=["bucket", "owner", "category"]),
         }
