@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY radosgw_usage_exporter.py /usr/src/app
 
 EXPOSE 9118
-ENV RADOSGW_SERVER=http://radosgw:80 VIRTUAL_PORT=9118 DEBUG=0
+ENV RADOSGW_SERVER=http://radosgw:80 VIRTUAL_PORT=9242 DEBUG=0
 
 ENTRYPOINT [ "python", "-u", "./radosgw_usage_exporter.py" ]
 CMD []
