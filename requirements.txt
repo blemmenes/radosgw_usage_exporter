@@ -1,0 +1,4 @@
+prometheus-client==0.0.19
+requests==2.2.1
+boto==2.46.1
+requests-aws==0.1.8
