@@ -22,7 +22,20 @@ pip install requirements.txt
 ```
 ### Usage
 ```
-./radosgw_usage_exporter.py -r <RADOSGW HOST> -a <ACCESS_KEY> -s <SECRET_KEY -p <LISTEN PORT>
+./radosgw_usage_exporter.py -r <RADOSGW HOST> -a <ACCESS_KEY> -s <SECRET_KEY> -p 9242
+```
+## Docker Usage
+```
+docker run -d -p 9242 blemmenes/radosgw_usage_exporter:latest -r <RADOSGW HOST> -a <ACCESS_KEY> -s <SECRET_KEY> -p 9242
+```
+Arguments can also be specified by environment variables as well.
+```
+docker run -d -p 9242:9242 \
+-e "RADOSGW_SERVER=<host>" \
+-e "VIRTUAL_PORT=9242" \
+-e "ACCESS_KEY=<access_key>" \
+-e "SECRET_KEY=<secret_key>" \
+blemmenes/radosgw_usage_exporter:latest
 ```
 
-Resulting metrics can be then retrieved via your Prometheus server via the ```http://<exporter host>:<LISTEN PORT>/metrics``` endpoint.
+Resulting metrics can be then retrieved via your Prometheus server via the ```http://<exporter host>:9242/metrics``` endpoint.
