@@ -131,7 +131,7 @@ def parse_args():
         required=False,
         type=int,
         help='Listen locally to this port',
-        default=int(os.environ.get('VIRTUAL_PORT', '9255'))
+        default=int(os.environ.get('VIRTUAL_PORT', '9242'))
     )
     parser.add_argument(
         '-a', '--access_key',
