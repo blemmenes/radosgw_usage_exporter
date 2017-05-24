@@ -11,7 +11,7 @@ from prometheus_client import start_http_server
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
 
 logging.basicConfig(level=logging.DEBUG)
-DEBUG = int(os.environ.get('DEBUG', '0')
+DEBUG = int(os.environ.get('DEBUG', '0'))
 
 
 class RADOSGWCollector(object):
