@@ -20,7 +20,7 @@ git clone git@github.com:blemmenes/radosgw_usage_exporter.git
 cd radosgw_usage_exporter
 pip install requirements.txt
 ```
-### Local Usage
+### Usage
 ```
 ./radosgw_usage_exporter.py -r <RADOSGW HOST> -a <ACCESS_KEY> -s <SECRET_KEY -p <LISTEN PORT>
 ```
