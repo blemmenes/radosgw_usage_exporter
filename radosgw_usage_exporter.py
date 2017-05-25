@@ -19,8 +19,8 @@ class RADOSGWCollector(object):
     the specified RADOSGW and presents it in a format suitable for pulling via
     a Prometheus server.
 
-    NOTE: By default RADOSGW Servers do not gather usage data by default and
-    must be enabled by 'rgw enable usage log = true' in the appropriate section
+    NOTE: By default RADOSGW Servers do not gather usage data and it must be
+    enabled by 'rgw enable usage log = true' in the appropriate section
     of ceph.conf see Ceph documentation for details """
 
     def __init__(self, target, access_key, secret_key):
