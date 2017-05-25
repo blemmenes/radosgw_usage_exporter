@@ -25,12 +25,12 @@ class RADOSGWCollector(object):
 
     def __init__(self, target, access_key, secret_key):
         super(RADOSGWCollector, self).__init__()
-        self.target=target
-        self.access_key=access_key
-        self.secret_key=secret_key
+        self.target = target
+        self.access_key = access_key
+        self.secret_key = secret_key
 
     def collect(self):
-        results=self._request_data()
+        results = self._request_data()
 
         # setup empty prometheus metrics
         self._setup_empty_prometheus_metrics()
@@ -44,15 +44,15 @@ class RADOSGWCollector(object):
 
     def _request_data(self):
         # Request all bucket usage data from RADOSGW endpoint
-        url='http://%s/admin/usage?format=json&show-summary=False' % self.target
-        response=requests.get(url, auth=S3Auth(
+        url = 'http://%s/admin/usage?format=json&show-summary=False' % self.target
+        response = requests.get(url, auth=S3Auth(
                                                 self.access_key,
                                                 self.secret_key,
                                                 self.target
                                                 ))
         if response.status_code != requests.codes.ok:
             return[]
-        results=response.json()
+        results = response.json()
 
         if DEBUG:
             pprint(results)
@@ -61,7 +61,7 @@ class RADOSGWCollector(object):
 
     def _setup_empty_prometheus_metrics(self):
         # The metrics we want to export.
-        self._prometheus_metrics={
+        self._prometheus_metrics = {
             'ops':
                 CounterMetricFamily('radosgw_usage_ops_total',
                                     'RADOSGW Usage number of opperations',
@@ -83,13 +83,13 @@ class RADOSGWCollector(object):
     def _process_data(self, entry):
         # Recieves JSON object 'entity' that contains all the buckets relating
         # to a given RGW UID.
-        bucket_owner=entry['owner']
+        bucket_owner = entry['owner']
         for bucket in entry['buckets']:
             print bucket
             if not bucket['bucket']:
-                bucket_name="root"
+                bucket_name = "bucket_root"
             else:
-                bucket_name=bucket['bucket']
+                bucket_name = bucket['bucket']
 
             for category in bucket['categories']:
                 self._add_data_to_prometheus(bucket_name, bucket_owner, category)
@@ -114,7 +114,7 @@ class RADOSGWCollector(object):
 
 
 def parse_args():
-    parser=argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         description='RADOSGW address and local binding port as well as \
         S3 access_key and secret_key'
     )
@@ -152,11 +152,11 @@ def parse_args():
 
 def main():
     try:
-        args=parse_args()
-        port=int(args.port)
-        server=args.radosgw
-        access_key=args.access_key
-        secret_key=args.secret_key
+        args = parse_args()
+        port = int(args.port)
+        server = args.radosgw
+        access_key = args.access_key
+        secret_key = args.secret_key
         REGISTRY.register(RADOSGWCollector(server, access_key, secret_key))
         start_http_server(port)
         print "Polling %s. Serving at port: %s" % (server, port)
