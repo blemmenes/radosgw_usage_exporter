@@ -27,7 +27,8 @@ pip install requirements.txt
 ## Docker Usage
 Docker build: (https://hub.docker.com/r/blemmenes/radosgw_usage_exporter/)
 ```
-docker run -d -p 9242 blemmenes/radosgw_usage_exporter:latest -r <RADOSGW HOST> -a <ACCESS_KEY> -s <SECRET_KEY> -p 9242
+docker run -d -p 9242 blemmenes/radosgw_usage_exporter:latest \
+-r <RADOSGW HOST> -a <ACCESS_KEY> -s <SECRET_KEY> -p 9242
 ```
 Arguments can also be specified by environment variables as well.
 ```
