@@ -89,7 +89,6 @@ class RADOSGWCollector(object):
         elif 'user' in entry: # Luminous 
           bucket_owner = entry['user']
         for bucket in entry['buckets']:
-            print bucket
             if not bucket['bucket']:
                 bucket_name = "bucket_root"
             else:
