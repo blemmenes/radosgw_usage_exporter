@@ -83,7 +83,10 @@ class RADOSGWCollector(object):
     def _process_data(self, entry):
         # Recieves JSON object 'entity' that contains all the buckets relating
         # to a given RGW UID.
-        bucket_owner = entry['owner']
+        try:
+          bucket_owner = entry['owner']
+        except: # Luminous 
+          bucket_owner = entry['user']
         for bucket in entry['buckets']:
             print bucket
             if not bucket['bucket']:
