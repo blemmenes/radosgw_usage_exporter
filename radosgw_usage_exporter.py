@@ -9,6 +9,7 @@ import argparse
 import os
 from awsauth import S3Auth
 from prometheus_client import start_http_server
+
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
 
 logging.basicConfig(level=logging.DEBUG)
@@ -82,7 +83,7 @@ class RADOSGWCollector(object):
 
             if response.status_code == requests.codes.ok:
                 if DEBUG:
-                    pprint(response)
+                    print response
 
                 return response.json()
             else:
@@ -138,7 +139,7 @@ class RADOSGWCollector(object):
 
         for bucket in entry['buckets']:
             if DEBUG:
-                pprint(bucket)
+                print json.dumps(bucket, indent=4, sort_keys=True)
 
             if not bucket['bucket']:
                 bucket_name = "bucket_root"
@@ -171,7 +172,7 @@ class RADOSGWCollector(object):
         """
 
         if DEBUG:
-            pprint(bucket)
+            print json.dumps(bucket, indent=4, sort_keys=True)
 
         if type(bucket) is dict:
             bucket_name = bucket['bucket']
