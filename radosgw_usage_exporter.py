@@ -142,6 +142,11 @@ class RADOSGWCollector(object):
             if DEBUG:
                 print json.dumps(bucket, indent=4, sort_keys=True)
 
+            # workaround for "anonymous" owner that shows up in publicly
+            # accessible RGW endpoints (from cross-site scripting probes)
+            if bucket_owner == "anonymous":
+                continue
+
             if not bucket['bucket']:
                 bucket_name = "bucket_root"
             else:
