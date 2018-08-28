@@ -83,7 +83,7 @@ class RADOSGWCollector(object):
 
             if response.status_code == requests.codes.ok:
                 if DEBUG:
-                    print response
+                    print(response)
 
                 return response.json()
             else:
@@ -119,10 +119,14 @@ class RADOSGWCollector(object):
                 CounterMetricFamily('radosgw_usage_received_bytes_total',
                                     'Bytes received by the RADOSGW',
                                     labels=["bucket", "owner", "category"]),
-            'bucket_usage':
-                GaugeMetricFamily('radosgw_usage_bucket_total',
+            'bucket_usage_bytes':
+                GaugeMetricFamily('radosgw_usage_bucket_bytes_total',
                                   'Bucket used bytes',
                                   labels=["bucket", "owner", "zonegroup"]),
+            'bucket_usage_objects':
+                GaugeMetricFamily('radosgw_usage_bucket_objects_total',
+                                  'Number of objects in bucket',
+                                  labels=["bucket", "owner", "zonegroup"])
         }
 
     def _get_usage(self, entry):
@@ -139,7 +143,7 @@ class RADOSGWCollector(object):
 
         for bucket in entry['buckets']:
             if DEBUG:
-                print json.dumps(bucket, indent=4, sort_keys=True)
+                print(json.dumps(bucket, indent=4, sort_keys=True))
 
             if not bucket['bucket']:
                 bucket_name = "bucket_root"
@@ -172,22 +176,27 @@ class RADOSGWCollector(object):
         """
 
         if DEBUG:
-            print json.dumps(bucket, indent=4, sort_keys=True)
+            print(json.dumps(bucket, indent=4, sort_keys=True))
 
         if type(bucket) is dict:
             bucket_name = bucket['bucket']
             bucket_owner = bucket['owner']
+            bucket_usage_bytes = 0
+            bucket_usage_objects = 0
 
             if bucket['usage']:
                 # prefer bytes, instead kbytes
                 if 'size_actual' in bucket['usage']['rgw.main']:
-                    bucket_usage = bucket['usage']['rgw.main']['size_actual']
+                    bucket_usage_bytes = bucket['usage']['rgw.main']['size_actual']
                 # Hammer don't have bytes field
                 elif 'size_kb_actual' in bucket['usage']['rgw.main']:
                     usage_kb = bucket['usage']['rgw.main']['size_kb_actual']
-                    bucket_usage = usage_kb * 1024
-            else:
-                bucket_usage = 0
+                    bucket_usage_bytes = usage_kb * 1024
+
+                # Get number of objects in bucket
+                if 'num_objects' in bucket['usage']['rgw.main']:
+                    bucket_usage_objects = bucket['usage']['rgw.main']['num_objects']
+
 
             if 'zonegroup' in bucket:
                 bucket_zonegroup = bucket['zonegroup']
@@ -196,9 +205,12 @@ class RADOSGWCollector(object):
                 bucket_zonegroup = "0"
 
 
-            self._prometheus_metrics['bucket_usage'].add_metric(
+            self._prometheus_metrics['bucket_usage_bytes'].add_metric(
                 [bucket_name, bucket_owner, bucket_zonegroup],
-                    bucket_usage)
+                    bucket_usage_bytes)
+            self._prometheus_metrics['bucket_usage_objects'].add_metric(
+                [bucket_name, bucket_owner, bucket_zonegroup],
+                    bucket_usage_objects)
         else:
         # Hammer junk, just skip it
             pass
