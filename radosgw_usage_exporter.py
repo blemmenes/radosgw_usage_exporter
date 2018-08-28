@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.DEBUG)
 DEBUG = int(os.environ.get('DEBUG', '0'))
 
 
+
 class RADOSGWCollector(object):
     """RADOSGWCollector gathers bucket level usage data for all buckets from
     the specified RADOSGW and presents it in a format suitable for pulling via
@@ -120,11 +121,11 @@ class RADOSGWCollector(object):
                                     'Bytes received by the RADOSGW',
                                     labels=["bucket", "owner", "category"]),
             'bucket_usage_bytes':
-                GaugeMetricFamily('radosgw_usage_bucket_bytes_total',
+                GaugeMetricFamily('radosgw_usage_bucket_bytes',
                                   'Bucket used bytes',
                                   labels=["bucket", "owner", "zonegroup"]),
             'bucket_usage_objects':
-                GaugeMetricFamily('radosgw_usage_bucket_objects_total',
+                GaugeMetricFamily('radosgw_usage_bucket_objects',
                                   'Number of objects in bucket',
                                   labels=["bucket", "owner", "zonegroup"])
         }
