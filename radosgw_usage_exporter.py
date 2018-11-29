@@ -32,7 +32,7 @@ class RADOSGWCollector(object):
         self.host = host
         self.access_key = access_key
         self.secret_key = secret_key
-        self.usage_dict = defaultdict(dict)
+
 
 
         # helpers for default schema
@@ -56,19 +56,16 @@ class RADOSGWCollector(object):
         # setup empty prometheus metrics
         self._setup_empty_prometheus_metrics()
 
+
+        self.usage_dict = defaultdict(dict)
         rgw_usage = self._request_data(query='usage', args='show-summary=False')
         rgw_bucket = self._request_data(query='bucket', args='stats=True')
 
         # populate metrics with data
         if rgw_usage:
             for entry in rgw_usage['entries']:
-                print "bob1"
                 self._get_usage(entry)
-            print "bob2"
-            for uid in self.usage_dict.keys():
-                for bucket in self.usage_dict[uid].keys():
-                    for category in self.usage_dict[uid][bucket].keys():
-                        print "uid: {0} bucket: {1} category: {2} data: {3}".format(uid, bucket, category, self.usage_dict[uid][bucket][category])
+            self._update_usage_metrics()
 
         if rgw_bucket:
             for bucket in rgw_bucket:
@@ -170,34 +167,37 @@ class RADOSGWCollector(object):
 
             for category in bucket['categories']:
                 category_name = category['category']
-                self.usage_dict[bucket_owner][bucket_name][category_name] = Counter()
+                if category_name not in self.usage_dict[bucket_owner][bucket_name].keys():
+                    self.usage_dict[bucket_owner][bucket_name][category_name] = Counter()
                 c = self.usage_dict[bucket_owner][bucket_name][category_name]
                 c.update({'ops':category['ops'],
                           'successful_ops':category['successful_ops'],
                           'bytes_sent':category['bytes_sent'],
                           'bytes_received':category['bytes_received']})
 
-                print "owner: {0} bucket: {1} category: {2} ops: {3}".format(bucket_owner,
-                                                                  bucket_name,
-                                                                  category_name,
-                                                                  category['ops']
-                                                                  )
-                # self._prometheus_metrics['ops'].add_metric(
-                #     [bucket_name, bucket_owner, category['category']],
-                #         category['ops'])
-                #
-                # self._prometheus_metrics['successful_ops'].add_metric(
-                #     [bucket_name, bucket_owner, category['category']],
-                #         category['successful_ops'])
-                #
-                # self._prometheus_metrics['bytes_sent'].add_metric(
-                #     [bucket_name, bucket_owner, category['category']],
-                #         category['bytes_sent'])
-                #
-                # self._prometheus_metrics['bytes_received'].add_metric(
-                #     [bucket_name, bucket_owner, category['category']],
-                #         category['bytes_received'])
 
+
+    def _update_usage_metrics(self):
+            for bucket_owner in self.usage_dict.keys():
+                for bucket_name in self.usage_dict[bucket_owner].keys():
+                    for category in self.usage_dict[bucket_owner][bucket_name].keys():
+                        data_dict = self.usage_dict[bucket_owner][bucket_name][category]
+                        self._prometheus_metrics['ops'].add_metric(
+                            # [bucket_name, bucket_owner, category['category']],
+                            [bucket_name, bucket_owner, category],
+                                data_dict['ops'])
+
+                        self._prometheus_metrics['successful_ops'].add_metric(
+                            [bucket_name, bucket_owner, category],
+                                data_dict['successful_ops'])
+
+                        self._prometheus_metrics['bytes_sent'].add_metric(
+                            [bucket_name, bucket_owner, category],
+                                data_dict['bytes_sent'])
+
+                        self._prometheus_metrics['bytes_received'].add_metric(
+                            [bucket_name, bucket_owner, category],
+                                data_dict['bytes_received'])
 
     def _get_bucket_usage(self, bucket):
         """
