@@ -10,12 +10,10 @@ import os
 from awsauth import S3Auth
 from prometheus_client import start_http_server
 from collections import defaultdict, Counter
-
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
 
 logging.basicConfig(level=logging.DEBUG)
 DEBUG = int(os.environ.get('DEBUG', '0'))
-
 
 
 class RADOSGWCollector(object):
@@ -32,8 +30,6 @@ class RADOSGWCollector(object):
         self.host = host
         self.access_key = access_key
         self.secret_key = secret_key
-
-
 
         # helpers for default schema
         if not self.host.startswith("http"):
@@ -56,8 +52,9 @@ class RADOSGWCollector(object):
         # setup empty prometheus metrics
         self._setup_empty_prometheus_metrics()
 
-
+        # setup dict for aggregating bucket usage accross "bins"
         self.usage_dict = defaultdict(dict)
+
         rgw_usage = self._request_data(query='usage', args='show-summary=False')
         rgw_bucket = self._request_data(query='bucket', args='stats=True')
 
@@ -175,9 +172,11 @@ class RADOSGWCollector(object):
                           'bytes_sent':category['bytes_sent'],
                           'bytes_received':category['bytes_received']})
 
-
-
     def _update_usage_metrics(self):
+        """
+        Update promethes metrics with bucket usage data
+        """
+
             for bucket_owner in self.usage_dict.keys():
                 for bucket_name in self.usage_dict[bucket_owner].keys():
                     for category in self.usage_dict[bucket_owner][bucket_name].keys():
@@ -242,7 +241,7 @@ class RADOSGWCollector(object):
                 [bucket_name, bucket_owner, bucket_zonegroup],
                     bucket_usage_objects)
         else:
-        # Hammer junk, just skip it
+            # Hammer junk, just skip it
             pass
 
 
