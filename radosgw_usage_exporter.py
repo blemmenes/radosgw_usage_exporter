@@ -124,6 +124,10 @@ class RADOSGWCollector(object):
                 GaugeMetricFamily('radosgw_usage_bucket_bytes',
                                   'Bucket used bytes',
                                   labels=["bucket", "owner", "zonegroup"]),
+            'bucket_utilized_bytes':
+                GaugeMetricFamily('radosgw_usage_bucket_utilized_bytes',
+                                  'Bucket utilized bytes',
+                                  labels=["bucket", "owner", "zonegroup"]),
             'bucket_usage_objects':
                 GaugeMetricFamily('radosgw_usage_bucket_objects',
                                   'Number of objects in bucket',
@@ -183,16 +187,21 @@ class RADOSGWCollector(object):
             bucket_name = bucket['bucket']
             bucket_owner = bucket['owner']
             bucket_usage_bytes = 0
+            bucket_utilized_bytes = 0
             bucket_usage_objects = 0
 
             if bucket['usage']:
-                # prefer bytes, instead kbytes
+                # Prefer bytes, instead kbytes
                 if 'size_actual' in bucket['usage']['rgw.main']:
                     bucket_usage_bytes = bucket['usage']['rgw.main']['size_actual']
                 # Hammer don't have bytes field
                 elif 'size_kb_actual' in bucket['usage']['rgw.main']:
                     usage_kb = bucket['usage']['rgw.main']['size_kb_actual']
                     bucket_usage_bytes = usage_kb * 1024
+
+                # Compressed buckets, since Kraken
+                if 'size_utilized' in bucket['usage']['rgw.main']:
+                    bucket_utilized_bytes = bucket['usage']['rgw.main']['size_utilized']
 
                 # Get number of objects in bucket
                 if 'num_objects' in bucket['usage']['rgw.main']:
@@ -209,6 +218,11 @@ class RADOSGWCollector(object):
             self._prometheus_metrics['bucket_usage_bytes'].add_metric(
                 [bucket_name, bucket_owner, bucket_zonegroup],
                     bucket_usage_bytes)
+
+            self._prometheus_metrics['bucket_utilized_bytes'].add_metric(
+                [bucket_name, bucket_owner, bucket_zonegroup],
+                    bucket_utilized_bytes)
+
             self._prometheus_metrics['bucket_usage_objects'].add_metric(
                 [bucket_name, bucket_owner, bucket_zonegroup],
                     bucket_usage_objects)
