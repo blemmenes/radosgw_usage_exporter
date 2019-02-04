@@ -7,6 +7,7 @@ import logging
 import json
 import argparse
 import os
+import time
 from awsauth import S3Auth
 from prometheus_client import start_http_server
 from collections import defaultdict, Counter
@@ -49,6 +50,7 @@ class RADOSGWCollector(object):
             http://docs.ceph.com/docs/master/radosgw/adminops/#get-bucket-info
         """
 
+        start = time.time()
         # setup empty prometheus metrics
         self._setup_empty_prometheus_metrics()
 
@@ -67,6 +69,10 @@ class RADOSGWCollector(object):
         if rgw_bucket:
             for bucket in rgw_bucket:
                 self._get_bucket_usage(bucket)
+
+        duration = time.time() - start
+        self._prometheus_metrics['scrape_duration_seconds'].add_metric(
+            [], duration)
 
         for metric in self._prometheus_metrics.values():
             yield metric
@@ -134,7 +140,11 @@ class RADOSGWCollector(object):
             'bucket_usage_objects':
                 GaugeMetricFamily('radosgw_usage_bucket_objects',
                                   'Number of objects in bucket',
-                                  labels=["bucket", "owner", "zonegroup"])
+                                  labels=["bucket", "owner", "zonegroup"]),
+            'scrape_duration_seconds':
+                GaugeMetricFamily('radosgw_usage_scrape_duration_seconds',
+                                  'Ammount of time each scrape takes',
+                                  labels=[])
         }
 
     def _get_usage(self, entry):
@@ -186,7 +196,6 @@ class RADOSGWCollector(object):
                 for category in self.usage_dict[bucket_owner][bucket_name].keys():
                     data_dict = self.usage_dict[bucket_owner][bucket_name][category]
                     self._prometheus_metrics['ops'].add_metric(
-                        # [bucket_name, bucket_owner, category['category']],
                         [bucket_name, bucket_owner, category],
                             data_dict['ops'])
 
