@@ -36,6 +36,10 @@ rgw enable apis = "s3, admin"
 [here](http://docs.ceph.com/docs/master/radosgw/admin/#add-remove-admin-capabilities)
 for more details.
 
+**Note:** If using a loadbalancer in front of your RADOSGWs, please make sure your timeouts are set appropriately as clusters with a large number of buckets, or large number of users+buckets could cause the usage query to exceed the loadbalancer timeout. 
+
+For haproxy the timeout in question is `timeout server`
+
 ## Local Installation
 ```
 git clone git@github.com:blemmenes/radosgw_usage_exporter.git
