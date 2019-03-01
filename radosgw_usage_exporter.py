@@ -8,8 +8,12 @@ import json
 import argparse
 import os
 from awsauth import S3Auth
-from prometheus_client import start_http_server
 from collections import defaultdict, Counter
+from prometheus_client import start_http_server
+from prometheus_client.twisted import MetricsResource
+from twisted.web.server import Site
+from twisted.web.resource import Resource
+from twisted.internet import reactor
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
 
 logging.basicConfig(level=logging.DEBUG)
@@ -311,7 +315,12 @@ def main():
         args = parse_args()
         REGISTRY.register(RADOSGWCollector(
             args.host, args.admin_entry, args.access_key, args.secret_key))
-        start_http_server(args.port)
+        root = Resource()
+        root.putChild(b'metrics', MetricsResource())
+        factory = Site(root)
+        reactor.listenTCP(args.port, factory)
+        reactor.run()
+        # start_http_server(args.port)
         print("Polling {0}. Serving at port: {1}".format(args.host, args.port))
         while True:
             time.sleep(1)
