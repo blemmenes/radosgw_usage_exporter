@@ -319,11 +319,11 @@ def main():
         root.putChild(b'metrics', MetricsResource())
         factory = Site(root)
         reactor.listenTCP(args.port, factory)
+        print("Polling {0}. Serving at port: {1}".format(args.host, args.port))
         reactor.run()
         # start_http_server(args.port)
-        print("Polling {0}. Serving at port: {1}".format(args.host, args.port))
-        while True:
-            time.sleep(1)
+        # while True:
+            # time.sleep(1)
     except KeyboardInterrupt:
         print("\nInterrupted")
         exit(0)

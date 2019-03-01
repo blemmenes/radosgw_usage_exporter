@@ -2,3 +2,4 @@ prometheus-client==0.0.19
 requests>=2.20.0
 boto==2.46.1
 requests-aws==0.1.8
+twisted>=14.0.2
