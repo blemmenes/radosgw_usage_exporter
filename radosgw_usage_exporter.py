@@ -7,7 +7,6 @@ import logging
 import json
 import argparse
 import os
-import time
 from awsauth import S3Auth
 from prometheus_client import start_http_server
 from collections import defaultdict, Counter
