@@ -59,7 +59,7 @@ class RADOSGWCollector(object):
 
         # setup dict for aggregating bucket usage accross "bins"
         self.usage_dict = defaultdict(dict)
-
+ 
         rgw_usage = self._request_data(query='usage', args='show-summary=False')
         rgw_bucket = self._request_data(query='bucket', args='stats=True')
 
