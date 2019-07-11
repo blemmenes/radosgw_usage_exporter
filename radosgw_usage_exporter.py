@@ -86,7 +86,7 @@ class RADOSGWCollector(object):
         url = "{0}{1}/?format=json&{2}".format(self.url, query, args)
 
         try:
-            response = requests.get(url, verify=False, auth=S3Auth(self.access_key,
+            response = requests.get(url, auth=S3Auth(self.access_key,
                                                      self.secret_key,
                                                      self.host))
 
