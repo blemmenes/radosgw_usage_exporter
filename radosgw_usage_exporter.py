@@ -226,7 +226,7 @@ class RADOSGWCollector(object):
             bucket_utilized_bytes = 0
             bucket_usage_objects = 0
 
-            if bucket['usage']:
+            try:
                 # Prefer bytes, instead kbytes
                 if 'size_actual' in bucket['usage']['rgw.main']:
                     bucket_usage_bytes = bucket['usage']['rgw.main']['size_actual']
@@ -242,6 +242,10 @@ class RADOSGWCollector(object):
                 # Get number of objects in bucket
                 if 'num_objects' in bucket['usage']['rgw.main']:
                     bucket_usage_objects = bucket['usage']['rgw.main']['num_objects']
+            except KeyError:
+                bucket_usage_bytes = 0
+                bucket_utilized_bytes = 0
+                bucket_usage_objects = 0
 
 
             if 'zonegroup' in bucket:
