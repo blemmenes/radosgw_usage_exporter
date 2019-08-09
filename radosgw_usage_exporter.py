@@ -25,11 +25,12 @@ class RADOSGWCollector(object):
     enabled by 'rgw enable usage log = true' in the appropriate section
     of ceph.conf see Ceph documentation for details """
 
-    def __init__(self, host, admin_entry, access_key, secret_key):
+    def __init__(self, host, admin_entry, access_key, secret_key, cluster_name):
         super(RADOSGWCollector, self).__init__()
         self.host = host
         self.access_key = access_key
         self.secret_key = secret_key
+        self.cluster_name = cluster_name
 
         # helpers for default schema
         if not self.host.startswith("http"):
@@ -115,31 +116,31 @@ class RADOSGWCollector(object):
             'ops':
                 CounterMetricFamily('radosgw_usage_ops_total',
                                     'Number of operations',
-                                    labels=["bucket", "owner", "category"]),
+                                    labels=["bucket", "owner", "category", "cluster"]),
             'successful_ops':
                 CounterMetricFamily('radosgw_usage_successful_ops_total',
                                     'Number of successful operations',
-                                    labels=["bucket", "owner", "category"]),
+                                    labels=["bucket", "owner", "category", "cluster"]),
             'bytes_sent':
                 CounterMetricFamily('radosgw_usage_sent_bytes_total',
                                     'Bytes sent by the RADOSGW',
-                                    labels=["bucket", "owner", "category"]),
+                                    labels=["bucket", "owner", "category", "cluster"]),
             'bytes_received':
                 CounterMetricFamily('radosgw_usage_received_bytes_total',
                                     'Bytes received by the RADOSGW',
-                                    labels=["bucket", "owner", "category"]),
+                                    labels=["bucket", "owner", "category", "cluster"]),
             'bucket_usage_bytes':
                 GaugeMetricFamily('radosgw_usage_bucket_bytes',
                                   'Bucket used bytes',
-                                  labels=["bucket", "owner", "zonegroup"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
             'bucket_utilized_bytes':
                 GaugeMetricFamily('radosgw_usage_bucket_utilized_bytes',
                                   'Bucket utilized bytes',
-                                  labels=["bucket", "owner", "zonegroup"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
             'bucket_usage_objects':
                 GaugeMetricFamily('radosgw_usage_bucket_objects',
                                   'Number of objects in bucket',
-                                  labels=["bucket", "owner", "zonegroup"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
             'scrape_duration_seconds':
                 GaugeMetricFamily('radosgw_usage_scrape_duration_seconds',
                                   'Ammount of time each scrape takes',
@@ -195,19 +196,19 @@ class RADOSGWCollector(object):
                 for category in self.usage_dict[bucket_owner][bucket_name].keys():
                     data_dict = self.usage_dict[bucket_owner][bucket_name][category]
                     self._prometheus_metrics['ops'].add_metric(
-                        [bucket_name, bucket_owner, category],
+                        [bucket_name, bucket_owner, category, self.cluster_name],
                             data_dict['ops'])
 
                     self._prometheus_metrics['successful_ops'].add_metric(
-                        [bucket_name, bucket_owner, category],
+                        [bucket_name, bucket_owner, category, self.cluster_name],
                             data_dict['successful_ops'])
 
                     self._prometheus_metrics['bytes_sent'].add_metric(
-                        [bucket_name, bucket_owner, category],
+                        [bucket_name, bucket_owner, category, self.cluster_name],
                             data_dict['bytes_sent'])
 
                     self._prometheus_metrics['bytes_received'].add_metric(
-                        [bucket_name, bucket_owner, category],
+                        [bucket_name, bucket_owner, category, self.cluster_name],
                             data_dict['bytes_received'])
 
     def _get_bucket_usage(self, bucket):
@@ -252,15 +253,15 @@ class RADOSGWCollector(object):
 
 
             self._prometheus_metrics['bucket_usage_bytes'].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup],
+                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
                     bucket_usage_bytes)
 
             self._prometheus_metrics['bucket_utilized_bytes'].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup],
+                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
                     bucket_utilized_bytes)
 
             self._prometheus_metrics['bucket_usage_objects'].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup],
+                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
                     bucket_usage_objects)
         else:
             # Hammer junk, just skip it
@@ -303,6 +304,14 @@ def parse_args():
         help='Port to listen',
         default=int(os.environ.get('VIRTUAL_PORT', '9242'))
     )
+
+    parser.add_argument(
+        '-c', '--cluster',
+        required=False,
+        help='cluster name',
+        default=os.environ.get('CLUSTER_NAME', 'ceph'),
+    )
+
     return parser.parse_args()
 
 
@@ -310,7 +319,7 @@ def main():
     try:
         args = parse_args()
         REGISTRY.register(RADOSGWCollector(
-            args.host, args.admin_entry, args.access_key, args.secret_key))
+            args.host, args.admin_entry, args.access_key, args.secret_key, args.cluster))
         start_http_server(args.port)
         print("Polling {0}. Serving at port: {1}".format(args.host, args.port))
         while True:
