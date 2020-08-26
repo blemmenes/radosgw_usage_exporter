@@ -84,7 +84,6 @@ class RADOSGWCollector(object):
         for metric in self._prometheus_metrics.values():
             yield metric
 
-
     def _request_data(self, query, args):
         """
         Requests data from RGW. If admin entry and caps is fine - return
@@ -275,21 +274,21 @@ class RADOSGWCollector(object):
 
             if bucket['usage']:
                 # Prefer bytes, instead kbytes
-                if 'size_actual' in bucket['usage']['rgw.main']:
-                    bucket_usage_bytes = bucket['usage']['rgw.main']['size_actual']
-                # Hammer don't have bytes field
-                elif 'size_kb_actual' in bucket['usage']['rgw.main']:
-                    usage_kb = bucket['usage']['rgw.main']['size_kb_actual']
-                    bucket_usage_bytes = usage_kb * 1024
+                if "rgw.main" in bucket['usage']:
+                    if 'size_actual' in bucket['usage']['rgw.main']:
+                        bucket_usage_bytes = bucket['usage']['rgw.main']['size_actual']
+                    # Hammer don't have bytes field
+                    elif 'size_kb_actual' in bucket['usage']['rgw.main']:
+                        usage_kb = bucket['usage']['rgw.main']['size_kb_actual']
+                        bucket_usage_bytes = usage_kb * 1024
 
-                # Compressed buckets, since Kraken
-                if 'size_utilized' in bucket['usage']['rgw.main']:
-                    bucket_utilized_bytes = bucket['usage']['rgw.main']['size_utilized']
+                    # Compressed buckets, since Kraken
+                    if 'size_utilized' in bucket['usage']['rgw.main']:
+                        bucket_utilized_bytes = bucket['usage']['rgw.main']['size_utilized']
 
-                # Get number of objects in bucket
-                if 'num_objects' in bucket['usage']['rgw.main']:
-                    bucket_usage_objects = bucket['usage']['rgw.main']['num_objects']
-
+                    # Get number of objects in bucket
+                    if 'num_objects' in bucket['usage']['rgw.main']:
+                        bucket_usage_objects = bucket['usage']['rgw.main']['num_objects']
 
             if 'zonegroup' in bucket:
                 bucket_zonegroup = bucket['zonegroup']
