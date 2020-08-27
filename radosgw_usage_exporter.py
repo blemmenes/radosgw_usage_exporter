@@ -42,6 +42,8 @@ class RADOSGWCollector(object):
             self.host = "{0}/".format(self.host)
 
         self.url = "{0}{1}/".format(self.host, admin_entry)
+        # Prepare Requests Session
+        self._session()
 
 
     def collect(self):
@@ -85,6 +87,25 @@ class RADOSGWCollector(object):
             yield metric
 
 
+    def _session(self):
+        """
+        Setup Requests connection settings.
+        """
+        self.session = requests.Session()
+        self.session_adapter = requests.adapters.HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=10)
+        self.session.mount('http://', self.session_adapter)
+        self.session.mount('https://', self.session_adapter)
+
+        # Inversion of condition, when '--insecure' is defined we disable
+        # requests warning about certificate hostname mismatch.
+        if not self.insecure:
+            warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+        if DEBUG:
+            print("Perform insecured requests")
+
+
     def _request_data(self, query, args):
         """
         Requests data from RGW. If admin entry and caps is fine - return
@@ -93,22 +114,14 @@ class RADOSGWCollector(object):
         url = "{0}{1}/?format=json&{2}".format(self.url, query, args)
 
         try:
-        # Inversion of condition, when '--insecure' is defined we disable
-        # requests warning about certificate hostname mismatch.
-            if not self.insecure:
-                warnings.filterwarnings('ignore', message='Unverified HTTPS request')
-                if DEBUG:
-                    print("Perform insecure request")
-
-            response = requests.get(url, verify=self.insecure,
-                                    auth=S3Auth(self.access_key,
-                                                self.secret_key,
-                                                self.host))
+            response = self.session.get(url, verify=self.insecure,
+                                        auth=S3Auth(self.access_key,
+                                                    self.secret_key,
+                                                    self.host))
 
             if response.status_code == requests.codes.ok:
                 if DEBUG:
                     print(response)
-
                 return response.json()
             else:
                 # Usage caps absent or wrong admin entry
@@ -120,6 +133,7 @@ class RADOSGWCollector(object):
         except requests.exceptions.RequestException as e:
             print("Request error: {0}".format(e))
             return
+
 
     def _setup_empty_prometheus_metrics(self):
         """
@@ -309,7 +323,7 @@ class RADOSGWCollector(object):
             self._prometheus_metrics['bucket_usage_objects'].add_metric(
                 [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
                     bucket_usage_objects)
-            
+
             if 'bucket_quota' in bucket:
                 self._prometheus_metrics['bucket_quota_enabled'].add_metric(
                     [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
