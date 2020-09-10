@@ -78,6 +78,7 @@ class RADOSGWCollector(object):
         if rgw_users:
             for user in rgw_users:
                 self._get_user_quota(user)
+                self._get_user_info(user)
 
         duration = time.time() - start
         self._prometheus_metrics['scrape_duration_seconds'].add_metric(
@@ -200,6 +201,14 @@ class RADOSGWCollector(object):
             'user_quota_max_objects':
                 GaugeMetricFamily('radosgw_usage_user_quota_size_objects',
                                   'Maximum allowed bucket size in number of objects',
+                                  labels=["user", "cluster"]),
+            'user_total_objects':
+                GaugeMetricFamily('radosgw_usage_user_total_objects',
+                                  'Usage of objects by user',
+                                  labels=["user", "cluster"]),
+            'user_total_bytes':
+                GaugeMetricFamily('radosgw_usage_user_total_bytes',
+                                  'Usage of bytes by user',
                                   labels=["user", "cluster"]),
             'scrape_duration_seconds':
                 GaugeMetricFamily('radosgw_usage_scrape_duration_seconds',
@@ -352,7 +361,7 @@ class RADOSGWCollector(object):
         if rgw_users and 'keys' in rgw_users:
             return rgw_users['keys']
         else:
-            # Compat with old Ceph versions (pre 12.2.3/13.2.9)
+            # Compat with old Ceph versions (pre 12.2.13/13.2.9)
             rgw_metadata_users = self._request_data(query='metadata/user', args='')
             return rgw_metadata_users
 
@@ -376,6 +385,20 @@ class RADOSGWCollector(object):
         self._prometheus_metrics['user_quota_max_objects'].add_metric(
             [user], quota['max_objects'])
 
+    def _get_user_info(self, user):
+        """
+        Method to get the info on a specific user(s).
+        """
+        user_info = self._request_data(query='user', args="uid={0}&stats=True".format(user))
+
+        if DEBUG:
+            print(json.dumps(user_info, indent=4, sort_keys=True))
+
+        if 'stats' in user_info:
+            self._prometheus_metrics['user_total_bytes'].add_metric(
+                [user], user_info['stats']['size_actual'])
+            self._prometheus_metrics['user_total_objects'].add_metric(
+                [user], user_info['stats']['num_objects'])
 
 def parse_args():
     parser = argparse.ArgumentParser(
