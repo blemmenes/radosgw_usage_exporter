@@ -31,10 +31,29 @@ rgw admin entry = "admin"
 rgw enable apis = "s3, admin"
 ```
 
-* This exporter requires a user that has a capability of `usage=read` and
-`buckets=read` see the Admin Guide
+* This exporter requires a user that has the following capability, see the Admin Guide
 [here](http://docs.ceph.com/docs/master/radosgw/admin/#add-remove-admin-capabilities)
 for more details.
+
+```
+    "caps": [
+        {
+            "type": "buckets",
+            "perm": "read"
+        },
+        {
+            "type": "metadata",
+            "perm": "read"
+        },
+        {
+            "type": "usage",
+            "perm": "read"
+        },
+        {
+            "type": "users",
+            "perm": "read"
+        }
+```
 
 **Note:** If using a loadbalancer in front of your RADOSGWs, please make sure your timeouts are set appropriately as clusters with a large number of buckets, or large number of users+buckets could cause the usage query to exceed the loadbalancer timeout. 
 
