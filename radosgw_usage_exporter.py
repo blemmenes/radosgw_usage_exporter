@@ -296,7 +296,7 @@ class RADOSGWCollector(object):
             bucket_utilized_bytes = 0
             bucket_usage_objects = 0
 
-            if bucket['usage']:
+            if bucket['usage'] and 'rgw.main' in bucket['usage']:
                 # Prefer bytes, instead kbytes
                 if 'size_actual' in bucket['usage']['rgw.main']:
                     bucket_usage_bytes = bucket['usage']['rgw.main']['size_actual']
