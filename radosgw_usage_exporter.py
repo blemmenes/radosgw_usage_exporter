@@ -186,6 +186,10 @@ class RADOSGWCollector(object):
                 GaugeMetricFamily('radosgw_usage_bucket_quota_size_objects',
                                   'Maximum allowed bucket size in number of objects',
                                   labels=["bucket", "owner", "zonegroup", "cluster"]),
+            'user_metadata':
+                GaugeMetricFamily('radosgw_user_metadata',
+                                  'User metadata',
+                                  labels=["user", "display_name", "email", "storage_class", "cluster"]),
             'user_quota_enabled':
                 GaugeMetricFamily('radosgw_usage_user_quota_enabled',
                                   'User quota enabled for bucket',
@@ -377,13 +381,13 @@ class RADOSGWCollector(object):
             print(json.dumps(quota, indent=4, sort_keys=True))
 
         self._prometheus_metrics['user_quota_enabled'].add_metric(
-            [user], quota['enabled'])
+            [user, self.cluster_name], quota['enabled'])
         self._prometheus_metrics['user_quota_max_size'].add_metric(
-            [user], quota['max_size'])
+            [user, self.cluster_name], quota['max_size'])
         self._prometheus_metrics['user_quota_max_size_bytes'].add_metric(
-            [user], quota['max_size_kb'] * 1024)
+            [user, self.cluster_name], quota['max_size_kb'] * 1024)
         self._prometheus_metrics['user_quota_max_objects'].add_metric(
-            [user], quota['max_objects'])
+            [user, self.cluster_name], quota['max_objects'])
 
     def _get_user_info(self, user):
         """
@@ -394,11 +398,28 @@ class RADOSGWCollector(object):
         if DEBUG:
             print(json.dumps(user_info, indent=4, sort_keys=True))
 
+        if 'display_name' in user_info:
+            user_display_name = user_info['display_name']
+        else:
+            user_display_name = ""
+        if 'email' in user_info:
+            user_email = user_info['email']
+        else:
+            user_email = ""
+        # Nautilus+
+        if 'default_storage_class' in user_info:
+            user_storage_class = user_info['default_storage_class']
+        else:
+            user_storage_class = ""
+
+        self._prometheus_metrics['user_metadata'].add_metric(
+            [user, user_display_name, user_email, user_storage_class, self.cluster_name], 1)
+
         if 'stats' in user_info:
             self._prometheus_metrics['user_total_bytes'].add_metric(
-                [user], user_info['stats']['size_actual'])
+                [user, self.cluster_name], user_info['stats']['size_actual'])
             self._prometheus_metrics['user_total_objects'].add_metric(
-                [user], user_info['stats']['num_objects'])
+                [user, self.cluster_name], user_info['stats']['num_objects'])
 
 def parse_args():
     parser = argparse.ArgumentParser(
