@@ -145,47 +145,47 @@ class RADOSGWCollector(object):
             'ops':
                 CounterMetricFamily('radosgw_usage_ops_total',
                                     'Number of operations',
-                                    labels=["bucket", "owner", "category", "cluster"]),
+                                    labels=["bucket", "owner", "category", "cluster", "tags"]),
             'successful_ops':
                 CounterMetricFamily('radosgw_usage_successful_ops_total',
                                     'Number of successful operations',
-                                    labels=["bucket", "owner", "category", "cluster"]),
+                                    labels=["bucket", "owner", "category", "cluster", "tags"]),
             'bytes_sent':
                 CounterMetricFamily('radosgw_usage_sent_bytes_total',
                                     'Bytes sent by the RADOSGW',
-                                    labels=["bucket", "owner", "category", "cluster"]),
+                                    labels=["bucket", "owner", "category", "cluster", "tags"]),
             'bytes_received':
                 CounterMetricFamily('radosgw_usage_received_bytes_total',
                                     'Bytes received by the RADOSGW',
-                                    labels=["bucket", "owner", "category", "cluster"]),
+                                    labels=["bucket", "owner", "category", "cluster", "tags"]),
             'bucket_usage_bytes':
                 GaugeMetricFamily('radosgw_usage_bucket_bytes',
                                   'Bucket used bytes',
-                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
             'bucket_utilized_bytes':
                 GaugeMetricFamily('radosgw_usage_bucket_utilized_bytes',
                                   'Bucket utilized bytes',
-                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
             'bucket_usage_objects':
                 GaugeMetricFamily('radosgw_usage_bucket_objects',
                                   'Number of objects in bucket',
-                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
             'bucket_quota_enabled':
                 GaugeMetricFamily('radosgw_usage_bucket_quota_enabled',
                                   'Quota enabled for bucket',
-                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
             'bucket_quota_max_size':
                 GaugeMetricFamily('radosgw_usage_bucket_quota_size',
                                   'Maximum allowed bucket size',
-                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
             'bucket_quota_max_size_bytes':
                 GaugeMetricFamily('radosgw_usage_bucket_quota_size_bytes',
                                   'Maximum allowed bucket size in bytes',
-                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
             'bucket_quota_max_objects':
                 GaugeMetricFamily('radosgw_usage_bucket_quota_size_objects',
                                   'Maximum allowed bucket size in number of objects',
-                                  labels=["bucket", "owner", "zonegroup", "cluster"]),
+                                  labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
             'user_metadata':
                 GaugeMetricFamily('radosgw_user_metadata',
                                   'User metadata',
@@ -324,31 +324,37 @@ class RADOSGWCollector(object):
             else:
                 bucket_zonegroup = "0"
 
+            if 'tagset' in bucket:
+                bucket_tagset = bucket['tagset']
+                taglist = ", ".join("=".join((k,str(v)))
+                    for k,v in sorted(bucket_tagset.items()))
+            else:
+                taglist = ''
 
             self._prometheus_metrics['bucket_usage_bytes'].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
+                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
                     bucket_usage_bytes)
 
             self._prometheus_metrics['bucket_utilized_bytes'].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
+                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
                     bucket_utilized_bytes)
 
             self._prometheus_metrics['bucket_usage_objects'].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
+                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
                     bucket_usage_objects)
 
             if 'bucket_quota' in bucket:
                 self._prometheus_metrics['bucket_quota_enabled'].add_metric(
-                    [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
+                    [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
                         bucket['bucket_quota']['enabled'])
                 self._prometheus_metrics['bucket_quota_max_size'].add_metric(
-                    [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
+                    [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
                         bucket['bucket_quota']['max_size'])
                 self._prometheus_metrics['bucket_quota_max_size_bytes'].add_metric(
-                    [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
+                    [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
                         bucket['bucket_quota']['max_size_kb'] * 1024)
                 self._prometheus_metrics['bucket_quota_max_objects'].add_metric(
-                    [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name],
+                    [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
                         bucket['bucket_quota']['max_objects'])
 
         else:
