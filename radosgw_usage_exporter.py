@@ -186,6 +186,10 @@ class RADOSGWCollector(object):
                 GaugeMetricFamily('radosgw_usage_bucket_quota_size_objects',
                                   'Maximum allowed bucket size in number of objects',
                                   labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
+            'bucket_shards':
+                GaugeMetricFamily('radosgw_usage_bucket_shards',
+                                  'Number ob shards in bucket',
+                                  labels=["bucket", "owner", "zonegroup", "cluster", "tags"]),
             'user_metadata':
                 GaugeMetricFamily('radosgw_user_metadata',
                                   'User metadata',
@@ -296,6 +300,7 @@ class RADOSGWCollector(object):
         if type(bucket) is dict:
             bucket_name = bucket['bucket']
             bucket_owner = bucket['owner']
+            bucket_shards = bucket['num_shards']
             bucket_usage_bytes = 0
             bucket_utilized_bytes = 0
             bucket_usage_objects = 0
@@ -356,6 +361,10 @@ class RADOSGWCollector(object):
                 self._prometheus_metrics['bucket_quota_max_objects'].add_metric(
                     [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
                         bucket['bucket_quota']['max_objects'])
+
+            self._prometheus_metrics['bucket_shards'].add_metric(
+                [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
+                    bucket_shards)
 
         else:
             # Hammer junk, just skip it
