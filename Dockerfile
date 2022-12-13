@@ -1,4 +1,4 @@
-FROM python:2-slim
+FROM python:3.9-slim
 
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app

@@ -84,7 +84,7 @@ class RADOSGWCollector(object):
         self._prometheus_metrics['scrape_duration_seconds'].add_metric(
             [], duration)
 
-        for metric in self._prometheus_metrics.values():
+        for metric in list(self._prometheus_metrics.values()):
             yield metric
 
 
@@ -126,13 +126,13 @@ class RADOSGWCollector(object):
                 return response.json()
             else:
                 # Usage caps absent or wrong admin entry
-                print("Request error [{0}]: {1}".format(
-                    response.status_code, response.content.decode('utf-8')))
+                print(("Request error [{0}]: {1}".format(
+                    response.status_code, response.content.decode('utf-8'))))
                 return
 
         # DNS, connection errors, etc
         except requests.exceptions.RequestException as e:
-            print("Request error: {0}".format(e))
+            print(("Request error: {0}".format(e)))
             return
 
 
@@ -238,24 +238,24 @@ class RADOSGWCollector(object):
         elif 'user' in entry:
             bucket_owner = entry['user']
 
-        if bucket_owner not in self.usage_dict.keys():
+        if bucket_owner not in list(self.usage_dict.keys()):
             self.usage_dict[bucket_owner] = defaultdict(dict)
 
         for bucket in entry['buckets']:
             if DEBUG:
-                print(json.dumps(bucket, indent=4, sort_keys=True))
+                print((json.dumps(bucket, indent=4, sort_keys=True)))
 
             if not bucket['bucket']:
                 bucket_name = "bucket_root"
             else:
                 bucket_name = bucket['bucket']
 
-            if bucket_name not in self.usage_dict[bucket_owner].keys():
+            if bucket_name not in list(self.usage_dict[bucket_owner].keys()):
                 self.usage_dict[bucket_owner][bucket_name] = defaultdict(dict)
 
             for category in bucket['categories']:
                 category_name = category['category']
-                if category_name not in self.usage_dict[bucket_owner][bucket_name].keys():
+                if category_name not in list(self.usage_dict[bucket_owner][bucket_name].keys()):
                     self.usage_dict[bucket_owner][bucket_name][category_name] = Counter()
                 c = self.usage_dict[bucket_owner][bucket_name][category_name]
                 c.update({'ops':category['ops'],
@@ -268,9 +268,9 @@ class RADOSGWCollector(object):
         Update promethes metrics with bucket usage data
         """
 
-        for bucket_owner in self.usage_dict.keys():
-            for bucket_name in self.usage_dict[bucket_owner].keys():
-                for category in self.usage_dict[bucket_owner][bucket_name].keys():
+        for bucket_owner in list(self.usage_dict.keys()):
+            for bucket_name in list(self.usage_dict[bucket_owner].keys()):
+                for category in list(self.usage_dict[bucket_owner][bucket_name].keys()):
                     data_dict = self.usage_dict[bucket_owner][bucket_name][category]
                     self._prometheus_metrics['ops'].add_metric(
                         [bucket_name, bucket_owner, category, self.cluster_name],
@@ -295,7 +295,7 @@ class RADOSGWCollector(object):
         """
 
         if DEBUG:
-            print(json.dumps(bucket, indent=4, sort_keys=True))
+            print((json.dumps(bucket, indent=4, sort_keys=True)))
 
         if type(bucket) is dict:
             bucket_name = bucket['bucket']
@@ -393,7 +393,7 @@ class RADOSGWCollector(object):
         quota = self._request_data(query='user', args="quota&uid={0}&quota-type=user".format(user))
 
         if DEBUG:
-            print(json.dumps(quota, indent=4, sort_keys=True))
+            print((json.dumps(quota, indent=4, sort_keys=True)))
 
         self._prometheus_metrics['user_quota_enabled'].add_metric(
             [user, self.cluster_name], quota['enabled'])
@@ -411,7 +411,7 @@ class RADOSGWCollector(object):
         user_info = self._request_data(query='user', args="uid={0}&stats=True".format(user))
 
         if DEBUG:
-            print(json.dumps(user_info, indent=4, sort_keys=True))
+            print((json.dumps(user_info, indent=4, sort_keys=True)))
 
         if 'display_name' in user_info:
             user_display_name = user_info['display_name']
@@ -494,7 +494,7 @@ def main():
         REGISTRY.register(RADOSGWCollector(
             args.host, args.admin_entry, args.access_key, args.secret_key, args.cluster, args.insecure))
         start_http_server(args.port)
-        print("Polling {0}. Serving at port: {1}".format(args.host, args.port))
+        print(("Polling {0}. Serving at port: {1}".format(args.host, args.port)))
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
