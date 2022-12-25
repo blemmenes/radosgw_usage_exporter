@@ -63,12 +63,12 @@ For haproxy the timeout in question is `timeout server`
 ```
 git clone git@github.com:blemmenes/radosgw_usage_exporter.git
 cd radosgw_usage_exporter
-pip install requirements.txt
+pip install --no-cache-dir -r requirements.txt
 ```
 
 ### Usage
 ```
-usage: radosgw_usage_exporter.py [-h] [-H HOST] [-e ADMIN_ENTRY]
+usage: python radosgw_usage_exporter.py [-h] [-H HOST] [-e ADMIN_ENTRY]
                                  [-a ACCESS_KEY] [-s SECRET_KEY] [-p PORT]
 
 RADOSGW address and local binding port as well as S3 access_key and secret_key
@@ -89,13 +89,13 @@ optional arguments:
 
 ### Example
 ```
-./check_ceph_rgw_api -H https://objects.dreamhost.com/ -a JXUABTZZYHAFLCMF9VYV -s jjP8RDD0R156atS6ACSy2vNdJLdEPM0TJQ5jD1pw
+python radosgw_usage_exporter.py -H https://objects.dreamhost.com/ -a JXUABTZZYHAFLCMF9VYV -s jjP8RDD0R156atS6ACSy2vNdJLdEPM0TJQ5jD1pw
 ```
 
 ## Docker Usage
 Docker build (https://hub.docker.com/r/blemmenes/radosgw_usage_exporter/):
 ```
-docker run -d -p 9242 blemmenes/radosgw_usage_exporter:latest \
+docker run -d -p 9242:9242 blemmenes/radosgw_usage_exporter:latest \
 -H <RADOSGW HOST> -a <ACCESS_KEY> -s <SECRET_KEY> -p 9242
 ```
 Arguments can also be specified by environment variables as well.
