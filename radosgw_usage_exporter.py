@@ -45,7 +45,6 @@ class RADOSGWCollector(object):
         # Prepare Requests Session
         self._session()
 
-
     def collect(self):
         """
         * Collect 'usage' data:
@@ -77,7 +76,6 @@ class RADOSGWCollector(object):
 
         if rgw_users:
             for user in rgw_users:
-                self._get_user_quota(user)
                 self._get_user_info(user)
 
         duration = time.time() - start
@@ -86,7 +84,6 @@ class RADOSGWCollector(object):
 
         for metric in list(self._prometheus_metrics.values()):
             yield metric
-
 
     def _session(self):
         """
@@ -105,7 +102,6 @@ class RADOSGWCollector(object):
             warnings.filterwarnings('ignore', message='Unverified HTTPS request')
         if DEBUG:
             print("Perform insecured requests")
-
 
     def _request_data(self, query, args):
         """
@@ -134,7 +130,6 @@ class RADOSGWCollector(object):
         except requests.exceptions.RequestException as e:
             print(("Request error: {0}".format(e)))
             return
-
 
     def _setup_empty_prometheus_metrics(self):
         """
@@ -196,19 +191,35 @@ class RADOSGWCollector(object):
                                   labels=["user", "display_name", "email", "storage_class", "cluster"]),
             'user_quota_enabled':
                 GaugeMetricFamily('radosgw_usage_user_quota_enabled',
-                                  'User quota enabled for bucket',
+                                  'User quota enabled',
                                   labels=["user", "cluster"]),
             'user_quota_max_size':
                 GaugeMetricFamily('radosgw_usage_user_quota_size',
-                                  'Maximum allowed bucket size for user',
+                                  'Maximum allowed size for user',
                                   labels=["user", "cluster"]),
             'user_quota_max_size_bytes':
                 GaugeMetricFamily('radosgw_usage_user_quota_size_bytes',
-                                  'Maximum allowed bucket size in bytes for user',
+                                  'Maximum allowed size in bytes for user',
                                   labels=["user", "cluster"]),
             'user_quota_max_objects':
                 GaugeMetricFamily('radosgw_usage_user_quota_size_objects',
-                                  'Maximum allowed bucket size in number of objects',
+                                  'Maximum allowed number of objects across all user buckets',
+                                  labels=["user", "cluster"]),
+            'user_bucket_quota_enabled':
+                GaugeMetricFamily('radosgw_usage_user_bucket_quota_enabled',
+                                  'User per-bucket-quota enabled',
+                                  labels=["user", "cluster"]),
+            'user_bucket_quota_max_size':
+                GaugeMetricFamily('radosgw_usage_user_bucket_quota_size',
+                                  'Maximum allowed size for each bucket of user',
+                                  labels=["user", "cluster"]),
+            'user_bucket_quota_max_size_bytes':
+                GaugeMetricFamily('radosgw_usage_user_bucket_quota_size_bytes',
+                                  'Maximum allowed size bytes size for each bucket of user',
+                                  labels=["user", "cluster"]),
+            'user_bucket_quota_max_objects':
+                GaugeMetricFamily('radosgw_usage_user_bucket_quota_size_objects',
+                                  'Maximum allowed number of objects in each user bucket',
                                   labels=["user", "cluster"]),
             'user_total_objects':
                 GaugeMetricFamily('radosgw_usage_user_total_objects',
@@ -258,10 +269,10 @@ class RADOSGWCollector(object):
                 if category_name not in list(self.usage_dict[bucket_owner][bucket_name].keys()):
                     self.usage_dict[bucket_owner][bucket_name][category_name] = Counter()
                 c = self.usage_dict[bucket_owner][bucket_name][category_name]
-                c.update({'ops':category['ops'],
-                          'successful_ops':category['successful_ops'],
-                          'bytes_sent':category['bytes_sent'],
-                          'bytes_received':category['bytes_received']})
+                c.update({'ops': category['ops'],
+                          'successful_ops': category['successful_ops'],
+                          'bytes_sent': category['bytes_sent'],
+                          'bytes_received': category['bytes_received']})
 
     def _update_usage_metrics(self):
         """
@@ -274,19 +285,19 @@ class RADOSGWCollector(object):
                     data_dict = self.usage_dict[bucket_owner][bucket_name][category]
                     self._prometheus_metrics['ops'].add_metric(
                         [bucket_name, bucket_owner, category, self.cluster_name],
-                            data_dict['ops'])
+                        data_dict['ops'])
 
                     self._prometheus_metrics['successful_ops'].add_metric(
                         [bucket_name, bucket_owner, category, self.cluster_name],
-                            data_dict['successful_ops'])
+                        data_dict['successful_ops'])
 
                     self._prometheus_metrics['bytes_sent'].add_metric(
                         [bucket_name, bucket_owner, category, self.cluster_name],
-                            data_dict['bytes_sent'])
+                        data_dict['bytes_sent'])
 
                     self._prometheus_metrics['bytes_received'].add_metric(
                         [bucket_name, bucket_owner, category, self.cluster_name],
-                            data_dict['bytes_received'])
+                        data_dict['bytes_received'])
 
     def _get_bucket_usage(self, bucket):
         """
@@ -322,7 +333,6 @@ class RADOSGWCollector(object):
                 if 'num_objects' in bucket['usage']['rgw.main']:
                     bucket_usage_objects = bucket['usage']['rgw.main']['num_objects']
 
-
             if 'zonegroup' in bucket:
                 bucket_zonegroup = bucket['zonegroup']
             # Hammer
@@ -331,40 +341,40 @@ class RADOSGWCollector(object):
 
             if 'tagset' in bucket:
                 bucket_tagset = bucket['tagset']
-                taglist = ", ".join("=".join((k,str(v)))
-                    for k,v in sorted(bucket_tagset.items()))
+                taglist = ", ".join("=".join((k, str(v)))
+                                    for k, v in sorted(bucket_tagset.items()))
             else:
                 taglist = ''
 
             self._prometheus_metrics['bucket_usage_bytes'].add_metric(
                 [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
-                    bucket_usage_bytes)
+                bucket_usage_bytes)
 
             self._prometheus_metrics['bucket_utilized_bytes'].add_metric(
                 [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
-                    bucket_utilized_bytes)
+                bucket_utilized_bytes)
 
             self._prometheus_metrics['bucket_usage_objects'].add_metric(
                 [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
-                    bucket_usage_objects)
+                bucket_usage_objects)
 
             if 'bucket_quota' in bucket:
                 self._prometheus_metrics['bucket_quota_enabled'].add_metric(
                     [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
-                        bucket['bucket_quota']['enabled'])
+                    bucket['bucket_quota']['enabled'])
                 self._prometheus_metrics['bucket_quota_max_size'].add_metric(
                     [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
-                        bucket['bucket_quota']['max_size'])
+                    bucket['bucket_quota']['max_size'])
                 self._prometheus_metrics['bucket_quota_max_size_bytes'].add_metric(
                     [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
-                        bucket['bucket_quota']['max_size_kb'] * 1024)
+                    bucket['bucket_quota']['max_size_kb'] * 1024)
                 self._prometheus_metrics['bucket_quota_max_objects'].add_metric(
                     [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
-                        bucket['bucket_quota']['max_objects'])
+                    bucket['bucket_quota']['max_objects'])
 
             self._prometheus_metrics['bucket_shards'].add_metric(
                 [bucket_name, bucket_owner, bucket_zonegroup, self.cluster_name, taglist],
-                    bucket_shards)
+                bucket_shards)
 
         else:
             # Hammer junk, just skip it
@@ -385,24 +395,6 @@ class RADOSGWCollector(object):
             return rgw_metadata_users
 
         return
-
-    def _get_user_quota(self, user):
-        """
-        Method to get the quota set on a specific user(s).
-        """
-        quota = self._request_data(query='user', args="quota&uid={0}&quota-type=user".format(user))
-
-        if DEBUG:
-            print((json.dumps(quota, indent=4, sort_keys=True)))
-
-        self._prometheus_metrics['user_quota_enabled'].add_metric(
-            [user, self.cluster_name], quota['enabled'])
-        self._prometheus_metrics['user_quota_max_size'].add_metric(
-            [user, self.cluster_name], quota['max_size'])
-        self._prometheus_metrics['user_quota_max_size_bytes'].add_metric(
-            [user, self.cluster_name], quota['max_size_kb'] * 1024)
-        self._prometheus_metrics['user_quota_max_objects'].add_metric(
-            [user, self.cluster_name], quota['max_objects'])
 
     def _get_user_info(self, user):
         """
@@ -435,6 +427,29 @@ class RADOSGWCollector(object):
                 [user, self.cluster_name], user_info['stats']['size_actual'])
             self._prometheus_metrics['user_total_objects'].add_metric(
                 [user, self.cluster_name], user_info['stats']['num_objects'])
+
+        if 'user_quota' in user_info:
+            quota = user_info['user_quota']
+            self._prometheus_metrics['user_quota_enabled'].add_metric(
+                [user, self.cluster_name], quota['enabled'])
+            self._prometheus_metrics['user_quota_max_size'].add_metric(
+                [user, self.cluster_name], quota['max_size'])
+            self._prometheus_metrics['user_quota_max_size_bytes'].add_metric(
+                [user, self.cluster_name], quota['max_size_kb'] * 1024)
+            self._prometheus_metrics['user_quota_max_objects'].add_metric(
+                [user, self.cluster_name], quota['max_objects'])
+
+        if 'bucket_quota' in user_info:
+            quota = user_info['bucket_quota']
+            self._prometheus_metrics['user_bucket_quota_enabled'].add_metric(
+                [user, self.cluster_name], quota['enabled'])
+            self._prometheus_metrics['user_bucket_quota_max_size'].add_metric(
+                [user, self.cluster_name], quota['max_size'])
+            self._prometheus_metrics['user_bucket_quota_max_size_bytes'].add_metric(
+                [user, self.cluster_name], quota['max_size_kb'] * 1024)
+            self._prometheus_metrics['user_bucket_quota_max_objects'].add_metric(
+                [user, self.cluster_name], quota['max_objects'])
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
