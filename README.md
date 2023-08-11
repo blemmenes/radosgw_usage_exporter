@@ -16,9 +16,18 @@ more elaborate Jenkins exporter here
 * Ceph RADOSGWs must beconfigured to gather usage information as this is not
 on by default. The miniumum is to enable it via `ceph.conf` as below. There are
 however other options that are available and should be considered
-[here](http://docs.ceph.com/docs/master/radosgw/config-ref/).
+[here](http://docs.ceph.com/docs/master/radosgw/config-ref/). If you don't configure
+thresholds, intervals, and shards you may end up having too large objects in the usage
+namespace of the log pool. The values below are just examples. Check the documentation
+which ones would be the best ones for your setup.
+
 ```
 rgw enable usage log = true
+rgw usage log flush threshold = 1024
+rgw usage log tick interval = 30
+rgw usage max shards = 32
+rgw usage max user shards = 8
+
 ```
 
 * Configure admin entry point (default is 'admin'):
