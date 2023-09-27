@@ -26,13 +26,14 @@ class RADOSGWCollector(object):
     enabled by 'rgw enable usage log = true' in the appropriate section
     of ceph.conf see Ceph documentation for details """
 
-    def __init__(self, host, admin_entry, access_key, secret_key, cluster_name, insecure):
+    def __init__(self, host, admin_entry, access_key, secret_key, cluster_name, insecure, timeout):
         super(RADOSGWCollector, self).__init__()
         self.host = host
         self.access_key = access_key
         self.secret_key = secret_key
         self.cluster_name = cluster_name
         self.insecure = insecure
+        self.timeout = timeout
 
         # helpers for default schema
         if not self.host.startswith("http"):
@@ -111,7 +112,7 @@ class RADOSGWCollector(object):
         url = "{0}{1}/?format=json&{2}".format(self.url, query, args)
 
         try:
-            response = self.session.get(url, verify=self.insecure,
+            response = self.session.get(url, verify=self.insecure, timeout=self.timeout,
                                         auth=S3Auth(self.access_key,
                                                     self.secret_key,
                                                     self.host))
@@ -492,14 +493,18 @@ def parse_args():
         help='Port to listen',
         default=int(os.environ.get('VIRTUAL_PORT', '9242'))
     )
-
     parser.add_argument(
         '-c', '--cluster',
         required=False,
         help='cluster name',
         default=os.environ.get('CLUSTER_NAME', 'ceph'),
     )
-
+    parser.add_argument(
+        '-t', '--timeout',
+        required=False,
+        help='Timeout when getting metrics',
+        default=os.environ.get('TIMEOUT', '60'),
+    )
     return parser.parse_args()
 
 
@@ -507,7 +512,7 @@ def main():
     try:
         args = parse_args()
         REGISTRY.register(RADOSGWCollector(
-            args.host, args.admin_entry, args.access_key, args.secret_key, args.cluster, args.insecure))
+            args.host, args.admin_entry, args.access_key, args.secret_key, args.cluster, args.insecure, args.timeout))
         start_http_server(args.port)
         print(("Polling {0}. Serving at port: {1}".format(args.host, args.port)))
         while True:
