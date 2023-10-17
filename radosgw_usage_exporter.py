@@ -26,13 +26,13 @@ class RADOSGWCollector(object):
     enabled by 'rgw enable usage log = true' in the appropriate section
     of ceph.conf see Ceph documentation for details """
 
-    def __init__(self, host, admin_entry, access_key, secret_key, cluster_name, insecure, timeout):
+    def __init__(self, host, admin_entry, access_key, secret_key, cluster_name, secure, timeout):
         super(RADOSGWCollector, self).__init__()
         self.host = host
         self.access_key = access_key
         self.secret_key = secret_key
         self.cluster_name = cluster_name
-        self.insecure = insecure
+        self.secure = secure
         self.timeout = timeout
 
         # helpers for default schema
@@ -99,7 +99,7 @@ class RADOSGWCollector(object):
 
         # Inversion of condition, when '--insecure' is defined we disable
         # requests warning about certificate hostname mismatch.
-        if not self.insecure:
+        if not self.secure:
             warnings.filterwarnings('ignore', message='Unverified HTTPS request')
         if DEBUG:
             print("Perform insecured requests")
@@ -112,7 +112,7 @@ class RADOSGWCollector(object):
         url = "{0}{1}/?format=json&{2}".format(self.url, query, args)
 
         try:
-            response = self.session.get(url, verify=self.insecure, timeout=float(self.timeout),
+            response = self.session.get(url, verify=self.secure, timeout=float(self.timeout),
                                         auth=S3Auth(self.access_key,
                                                     self.secret_key,
                                                     self.host))
@@ -484,7 +484,9 @@ def parse_args():
     parser.add_argument(
         '-k', '--insecure',
         help='Allow insecure server connections when using SSL',
-        action="store_false"
+        action="store_false",
+        dest="secure",
+        default=bool(False if os.environ.get("SECURE", "true") == "false" else True),
     )
     parser.add_argument(
         '-p', '--port',
@@ -512,7 +514,7 @@ def main():
     try:
         args = parse_args()
         REGISTRY.register(RADOSGWCollector(
-            args.host, args.admin_entry, args.access_key, args.secret_key, args.cluster, args.insecure, args.timeout))
+            args.host, args.admin_entry, args.access_key, args.secret_key, args.cluster, args.secure, args.timeout))
         start_http_server(args.port)
         print(("Polling {0}. Serving at port: {1}".format(args.host, args.port)))
         while True:
