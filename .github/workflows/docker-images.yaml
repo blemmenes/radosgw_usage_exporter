@@ -1,0 +1,39 @@
+name: Multi-Arch Docker Build and Push to GHCR
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Login to GHCR
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx for multiarch images
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image to GHCR
+        run: |
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "master" ] && VERSION=latest
+          docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
+              --push \
+              -t ghcr.io/${{ github.repository }}:${VERSION} \
+              .
