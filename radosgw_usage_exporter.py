@@ -538,7 +538,7 @@ def parse_args():
         "-s",
         "--secret-key",
         required=False,
-        help="S3 secrest key",
+        help="S3 secret key",
         default=os.environ.get("SECRET_KEY", "NA"),
     )
     parser.add_argument(
@@ -559,7 +559,7 @@ def parse_args():
         "-S",
         "--store",
         required=False,
-        help="store name added to metrics",
+        help="Store name added to metrics",
         default=os.environ.get("STORE", "us-east-1"),
     )
     parser.add_argument(
@@ -573,7 +573,7 @@ def parse_args():
         "-l",
         "--log-level",
         required=False,
-        help="Provide logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL",
+        help="Provide logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL",
         default=os.environ.get("LOG_LEVEL", "INFO"),
     )
 
