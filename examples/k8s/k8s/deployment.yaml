@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-buckets-usage-exporter
+  labels:
+    app.kubernetes.io/name: prometheus-buckets-usage-exporter
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-buckets-usage-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus-buckets-usage-exporter
+    spec:
+      containers:
+      - image: ghcr.io/pando85/radosgw_usage_exporter:latest
+        env:
+        - name: ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: AccessKey
+              name: rook-ceph-object-user-us-east-1-buckets-usage-exporter
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: SecretKey
+              name: rook-ceph-object-user-us-east-1-buckets-usage-exporter
+        - name: RADOSGW_SERVER
+          valueFrom:
+            secretKeyRef:
+              key: Endpoint
+              name: rook-ceph-object-user-us-east-1-buckets-usage-exporter
+        - name: VIRTUAL_PORT
+          value: "9242"
+        - name: STORE
+          value: eu-central-1a
+        - name: LOG_LEVEL
+          value: INFO
+        - name: TIMEOUT
+          value: "60"
+        args:
+        - --insecure
+        name: exporter
+        ports:
+        - containerPort: 9242
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 10m
+            memory: 40Mi
+        livenessProbe:
+          tcpSocket:
+            port: http
+        readinessProbe:
+          tcpSocket:
+            port: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000

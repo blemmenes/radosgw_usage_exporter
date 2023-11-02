@@ -88,7 +88,7 @@ pip install requirements.txt
 | `-k --insecure`    |                  | Allow insecure server connections when using SSL                        | `false`             |
 | `-p --port`        | VIRTUAL_PORT     | Port to listen                                                          | `9242`              |
 | `-S --store`       | STORE            | Store name added to metrics                                             | `us-east-1`         |
-| `-t --timeout`     | TIMEOUT          | Timeout when getting metrics                                            | `us-east-1`         |
+| `-t --timeout`     | TIMEOUT          | Timeout when getting metrics                                            | `60`                |
 | `-l --log-level`   | LOG_LEVEL        | Provide logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL          | `INFO`              |
 
 ### Example
@@ -97,7 +97,7 @@ pip install requirements.txt
 ./check_ceph_rgw_api -H https://objects.dreamhost.com/ -a JXUABTZZYHAFLCMF9VYV -s jjP8RDD0R156atS6ACSy2vNdJLdEPM0TJQ5jD1pw
 ```
 
-## Docker Usage
+## Docker
 
 Docker build
 (https://github.com/pando85/radosgw_usage_exporter/pkgs/container/radosgw_usage_exporter):
@@ -120,3 +120,8 @@ ghcr.io/pando85/radosgw_usage_exporter:latest
 
 Resulting metrics can be then retrieved via your Prometheus server via the
 `http://<exporter host>:9242/metrics` endpoint.
+
+## Kubernetes
+
+You can find an example of deployment using [Rook](https://rook.io/) operator in a K8s environment
+in `examples/k8s` directory.

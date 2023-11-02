@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-buckets-usage-exporter
+  labels:
+    app.kubernetes.io/name: prometheus-buckets-usage-exporter
+spec:
+  selector:
+    app.kubernetes.io/name: prometheus-buckets-usage-exporter
+  ports:
+  - name: http
+    port: 9242
+    protocol: TCP
+    targetPort: 9242
+
+
