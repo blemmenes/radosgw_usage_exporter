@@ -13,9 +13,6 @@ from prometheus_client import start_http_server
 from collections import defaultdict, Counter
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
 
-logging.basicConfig(level=logging.DEBUG)
-DEBUG = int(os.environ.get('DEBUG', '0'))
-
 
 class RADOSGWCollector(object):
     """RADOSGWCollector gathers bucket level usage data for all buckets from
@@ -101,8 +98,7 @@ class RADOSGWCollector(object):
         # requests warning about certificate hostname mismatch.
         if not self.insecure:
             warnings.filterwarnings('ignore', message='Unverified HTTPS request')
-        if DEBUG:
-            print("Perform insecured requests")
+        logging.debug("Perform insecured requests")
 
     def _request_data(self, query, args):
         """
@@ -118,18 +114,17 @@ class RADOSGWCollector(object):
                                                     self.host))
 
             if response.status_code == requests.codes.ok:
-                if DEBUG:
-                    print(response)
+                logging.debug(response)
                 return response.json()
             else:
                 # Usage caps absent or wrong admin entry
-                print(("Request error [{0}]: {1}".format(
+                logging.error(("Request error [{0}]: {1}".format(
                     response.status_code, response.content.decode('utf-8'))))
                 return
 
         # DNS, connection errors, etc
         except requests.exceptions.RequestException as e:
-            print(("Request error: {0}".format(e)))
+            logging.info(("Request error: {0}".format(e)))
             return
 
     def _setup_empty_prometheus_metrics(self):
@@ -254,8 +249,7 @@ class RADOSGWCollector(object):
             self.usage_dict[bucket_owner] = defaultdict(dict)
 
         for bucket in entry['buckets']:
-            if DEBUG:
-                print((json.dumps(bucket, indent=4, sort_keys=True)))
+            logging.debug((json.dumps(bucket, indent=4, sort_keys=True)))
 
             if not bucket['bucket']:
                 bucket_name = "bucket_root"
@@ -305,9 +299,7 @@ class RADOSGWCollector(object):
         Method get actual bucket usage (in bytes).
         Some skips and adjustments for various Ceph releases.
         """
-
-        if DEBUG:
-            print((json.dumps(bucket, indent=4, sort_keys=True)))
+        logging.debug((json.dumps(bucket, indent=4, sort_keys=True)))
 
         if type(bucket) is dict:
             bucket_name = bucket['bucket']
@@ -402,9 +394,7 @@ class RADOSGWCollector(object):
         Method to get the info on a specific user(s).
         """
         user_info = self._request_data(query='user', args="uid={0}&stats=True".format(user))
-
-        if DEBUG:
-            print((json.dumps(user_info, indent=4, sort_keys=True)))
+        logging.debug((json.dumps(user_info, indent=4, sort_keys=True)))
 
         if 'display_name' in user_info:
             user_display_name = user_info['display_name']
@@ -464,19 +454,19 @@ def parse_args():
         default=os.environ.get('RADOSGW_SERVER', 'http://radosgw:80')
     )
     parser.add_argument(
-        '-e', '--admin_entry',
+        '-e', '--admin-entry',
         required=False,
         help="The entry point for an admin request URL [default is '%(default)s']",
         default=os.environ.get('ADMIN_ENTRY', 'admin')
     )
     parser.add_argument(
-        '-a', '--access_key',
+        '-a', '--access-key',
         required=False,
         help='S3 access key',
         default=os.environ.get('ACCESS_KEY', 'NA')
     )
     parser.add_argument(
-        '-s', '--secret_key',
+        '-s', '--secret-key',
         required=False,
         help='S3 secrest key',
         default=os.environ.get('SECRET_KEY', 'NA')
@@ -505,20 +495,28 @@ def parse_args():
         help='Timeout when getting metrics',
         default=os.environ.get('TIMEOUT', '60'),
     )
+    parser.add_argument(
+        '-l', '--log-level',
+        required=False,
+        help='Provide logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL',
+        default=os.environ.get('LOG_LEVEL', 'INFO'),
+    )
+
     return parser.parse_args()
 
 
 def main():
     try:
         args = parse_args()
+        logging.basicConfig(level=args.log_level.upper())
         REGISTRY.register(RADOSGWCollector(
             args.host, args.admin_entry, args.access_key, args.secret_key, args.store, args.insecure, args.timeout))
         start_http_server(args.port)
-        print(("Polling {0}. Serving at port: {1}".format(args.host, args.port)))
+        logging.info(("Polling {0}. Serving at port: {1}".format(args.host, args.port)))
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nInterrupted")
+        logging.info("\nInterrupted")
         exit(0)
 
 
