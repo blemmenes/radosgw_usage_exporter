@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-buckets-usage-exporter
+  labels:
+    app.kubernetes.io/name: prometheus-buckets-usage-exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-buckets-usage-exporter
+  endpoints:
+  - honorLabels: true
+    interval: 90s
+    path: /metrics
+    port: http
+    scheme: http
+    scrapeTimeout: 60s
+  jobLabel: prometheus-buckets-usage-exporter
+
