@@ -1,37 +1,37 @@
 # Ceph RADOSGW Usage Exporter
 
 [Prometheus](https://prometheus.io/) exporter that scrapes
-[Ceph](http://ceph.com/) RADOSGW usage information (operations and buckets).
-This information is gathered from a RADOSGW using the
+[Ceph](http://ceph.com/) Ceph Object Gateway (RGW) usage information: operations and buckets.
+This information is gathered using the
 [Admin Operations API](http://docs.ceph.com/docs/master/radosgw/adminops/).
 
-This exporter was based off from both
+This exporter was based on both
 (https://www.robustperception.io/writing-a-jenkins-exporter-in-python/) and the
-more elaborate Jenkins exporter here
+more elaborate Jenkins exporter found at 
 (https://github.com/lovoo/jenkins_exporter).
 
 ## Requirements
 
-* Working Ceph Cluster with Object Gateways setup.
-* Ceph RADOSGWs must beconfigured to gather usage information as this is not
-on by default. The miniumum is to enable it via `ceph.conf` as below. There are
-however other options that are available and should be considered
+* Functional Ceph Cluster with the Ceph Object Gateway.
+* Ceph RGW services must be configured to gather usage information as this is not
+on by default. At a miniumum this may be enabled via `ceph.conf` as below. There are
+also other options that should be considered
 [here](http://docs.ceph.com/docs/master/radosgw/config-ref/).
 ```
-rgw enable usage log = true
+rgw_enable_usage_log = true
 ```
 
 * Configure admin entry point (default is 'admin'):
 ```
-rgw admin entry = "admin"
+rgw_admin_entry = "admin"
 ```
 
 * Enable admin API (default is enabled):
 ```
-rgw enable apis = "s3, admin"
+rgw_enable_apis = "s3, admin"
 ```
 
-* This exporter requires a user that has the following capability, see the Admin Guide
+* This exporter requires a user that has the following capabilities; see the Admin Guide
 [here](http://docs.ceph.com/docs/master/radosgw/admin/#add-remove-admin-capabilities)
 for more details.
 
@@ -55,9 +55,12 @@ for more details.
         }
 ```
 
-**Note:** If using a loadbalancer in front of your RADOSGWs, please make sure your timeouts are set appropriately as clusters with a large number of buckets, or large number of users+buckets could cause the usage query to exceed the loadbalancer timeout. 
+**Note:** If using a load balancer in front of your RGWs, please ensure that
+ your timeouts are set appropriately.  When a cluster hosts a large number of
+ buckets or a large number of users+buckets, usage queries may exceed the
+ load balancer's timeout. 
 
-For haproxy the timeout in question is `timeout server`
+For `haproxy` the relevant timeout is `timeout server`.
 
 ## Local Installation
 ```
@@ -71,11 +74,12 @@ pip install requirements.txt
 usage: radosgw_usage_exporter.py [-h] [-H HOST] [-e ADMIN_ENTRY]
                                  [-a ACCESS_KEY] [-s SECRET_KEY] [-p PORT]
 
-RADOSGW address and local binding port as well as S3 access_key and secret_key
+The required arguments are the RGW IP address and port as well as the admin S3 access key
+and secret key.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -H HOST, --host HOST  Server URL for the RADOSGW api (example:
+Optional arguments:
+  -h, --help            Show this help message and exit
+  -H HOST, --host HOST  URL for the RGW API (example:
                         http://objects.dreamhost.com/)
   -e ADMIN_ENTRY, --admin_entry ADMIN_ENTRY
                         The entry point for an admin request URL [default is
@@ -83,8 +87,8 @@ optional arguments:
   -a ACCESS_KEY, --access_key ACCESS_KEY
                         S3 access key
   -s SECRET_KEY, --secret_key SECRET_KEY
-                        S3 secrest key
-  -p PORT, --port PORT  Port to listen
+                        S3 secret key
+  -p PORT, --port PORT  TCP port
 ```
 
 ### Example
@@ -108,5 +112,5 @@ docker run -d -p 9242:9242 \
 blemmenes/radosgw_usage_exporter:latest
 ```
 
-Resulting metrics can be then retrieved via your Prometheus server via the
-`http://<exporter host>:9242/metrics` endpoint.
+Metrics may be retrieved via `wget` or `curl`, or scraped by your Prometheus
+system against the `http://<exporter host>:9242/metrics` endpoint.
