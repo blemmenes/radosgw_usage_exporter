@@ -8,6 +8,7 @@ import logging
 import json
 import argparse
 import os
+import threading
 from awsauth import S3Auth
 from prometheus_client import start_http_server
 from collections import defaultdict, Counter
@@ -45,6 +46,12 @@ class RADOSGWCollector(object):
         # Prepare Requests Session
         self._session()
 
+        # Cache for bucket data
+        self.rgw_bucket_cache = {}  # Bucket data cache
+
+        # Start a timer to refresh bucket data periodically
+        self.start_bucket_refresh_timer()
+
     def collect(self):
         """
         * Collect 'usage' data:
@@ -52,6 +59,8 @@ class RADOSGWCollector(object):
         * Collect 'bucket' data:
             http://docs.ceph.com/docs/master/radosgw/adminops/#get-bucket-info
         """
+        # Use cached bucket data
+        rgw_bucket = self.rgw_bucket_cache
 
         start = time.time()
         # setup empty prometheus metrics
@@ -61,7 +70,6 @@ class RADOSGWCollector(object):
         self.usage_dict = defaultdict(dict)
 
         rgw_usage = self._request_data(query="usage", args="show-summary=False")
-        rgw_bucket = self._request_data(query="bucket", args="stats=True")
         rgw_users = self._get_rgw_users()
 
         # populate metrics with data
@@ -134,6 +142,29 @@ class RADOSGWCollector(object):
         except requests.exceptions.RequestException as e:
             logging.info(("Request error: {0}".format(e)))
             return
+
+    def start_bucket_refresh_timer(self, interval=36):
+        """
+        Start a timer to refresh bucket data periodically.
+        """
+        def refresh_bucket_data():
+            while True:
+                try:
+                    rgw_bucket = self._request_data(query="bucket", args="stats=True")
+                    if rgw_bucket:
+                        self.rgw_bucket_cache = rgw_bucket  # Update cache
+                    else:
+                        self.rgw_bucket_cache = {}  # Clear cache if retrieval fails
+                except Exception as e:
+                    print("Error refreshing bucket data: {}".format(e))
+                time.sleep(interval)
+
+        # Create and start a new thread for refreshing bucket data
+        refresh_thread = threading.Thread(target=refresh_bucket_data)
+        refresh_thread.daemon = True
+        refresh_thread.start()
+
+
 
     def _setup_empty_prometheus_metrics(self):
         """
