@@ -24,7 +24,7 @@ class RADOSGWCollector(object):
     of ceph.conf see Ceph documentation for details"""
 
     def __init__(
-        self, host, admin_entry, access_key, secret_key, store, insecure, timeout
+        self, host, admin_entry, access_key, secret_key, store, insecure, timeout, tag_list
     ):
         super(RADOSGWCollector, self).__init__()
         self.host = host
@@ -33,6 +33,7 @@ class RADOSGWCollector(object):
         self.store = store
         self.insecure = insecure
         self.timeout = timeout
+        self.tag_list = tag_list
 
         # helpers for default schema
         if not self.host.startswith("http"):
@@ -55,7 +56,7 @@ class RADOSGWCollector(object):
 
         start = time.time()
         # setup empty prometheus metrics
-        self._setup_empty_prometheus_metrics()
+        self._setup_empty_prometheus_metrics(args="")
 
         # setup dict for aggregating bucket usage accross "bins"
         self.usage_dict = defaultdict(dict)
@@ -135,71 +136,74 @@ class RADOSGWCollector(object):
             logging.info(("Request error: {0}".format(e)))
             return
 
-    def _setup_empty_prometheus_metrics(self):
+    def _setup_empty_prometheus_metrics(self, args):
         """
         The metrics we want to export.
         """
+
+        b_labels = ["bucket", "owner", "category", "store"]
+        b_labels=b_labels+self.tag_list.split(",")
 
         self._prometheus_metrics = {
             "ops": CounterMetricFamily(
                 "radosgw_usage_ops_total",
                 "Number of operations",
-                labels=["bucket", "owner", "category", "store", "tags"],
+                labels=b_labels,
             ),
             "successful_ops": CounterMetricFamily(
                 "radosgw_usage_successful_ops_total",
                 "Number of successful operations",
-                labels=["bucket", "owner", "category", "store", "tags"],
+                labels=b_labels,
             ),
             "bytes_sent": CounterMetricFamily(
                 "radosgw_usage_sent_bytes_total",
                 "Bytes sent by the RADOSGW",
-                labels=["bucket", "owner", "category", "store", "tags"],
+                labels=b_labels,
             ),
             "bytes_received": CounterMetricFamily(
                 "radosgw_usage_received_bytes_total",
                 "Bytes received by the RADOSGW",
-                labels=["bucket", "owner", "category", "store", "tags"],
+                labels=b_labels,
             ),
             "bucket_usage_bytes": GaugeMetricFamily(
                 "radosgw_usage_bucket_bytes",
                 "Bucket used bytes",
-                labels=["bucket", "owner", "zonegroup", "store", "tags"],
+                labels=b_labels,
             ),
             "bucket_utilized_bytes": GaugeMetricFamily(
                 "radosgw_usage_bucket_utilized_bytes",
                 "Bucket utilized bytes",
-                labels=["bucket", "owner", "zonegroup", "store", "tags"],
+                labels=b_labels,
             ),
             "bucket_usage_objects": GaugeMetricFamily(
                 "radosgw_usage_bucket_objects",
                 "Number of objects in bucket",
-                labels=["bucket", "owner", "zonegroup", "store", "tags"],
+                labels=b_labels,
             ),
             "bucket_quota_enabled": GaugeMetricFamily(
                 "radosgw_usage_bucket_quota_enabled",
                 "Quota enabled for bucket",
-                labels=["bucket", "owner", "zonegroup", "store", "tags"],
+                labels=b_labels,
             ),
             "bucket_quota_max_size": GaugeMetricFamily(
                 "radosgw_usage_bucket_quota_size",
                 "Maximum allowed bucket size",
-                labels=["bucket", "owner", "zonegroup", "store", "tags"],
+                labels=b_labels,
             ),
             "bucket_quota_max_size_bytes": GaugeMetricFamily(
                 "radosgw_usage_bucket_quota_size_bytes",
                 "Maximum allowed bucket size in bytes",
-                labels=["bucket", "owner", "zonegroup", "store", "tags"],
+                labels=b_labels,
             ),
             "bucket_quota_max_objects": GaugeMetricFamily(
                 "radosgw_usage_bucket_quota_size_objects",
                 "Maximum allowed bucket size in number of objects",
-                labels=["bucket", "owner", "zonegroup", "store", "tags"],
+                labels=b_labels,
             ),
             "bucket_shards": GaugeMetricFamily(
                 "radosgw_usage_bucket_shards",
                 "Number ob shards in bucket",
-                labels=["bucket", "owner", "zonegroup", "store", "tags"],
+                labels=b_labels,
             ),
             "user_metadata": GaugeMetricFamily(
                 "radosgw_user_metadata",
@@ -376,49 +380,53 @@ class RADOSGWCollector(object):
             else:
                 bucket_zonegroup = "0"
 
+
+            taglist = []
             if "tagset" in bucket:
                 bucket_tagset = bucket["tagset"]
-                taglist = ", ".join(
-                    "=".join((k, str(v))) for k, v in sorted(bucket_tagset.items())
-                )
-            else:
-                taglist = ""
+                if self.tag_list:
+                    for k in self.tag_list.split(","):
+                        if k in bucket_tagset:
+                            taglist.append(bucket_tagset[k])
+
+            b_metrics = [bucket_name, bucket_owner, bucket_zonegroup, self.store]
+            b_metrics=b_metrics+taglist
 
             self._prometheus_metrics["bucket_usage_bytes"].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup, self.store, taglist],
+                b_metrics,
                 bucket_usage_bytes,
             )
 
             self._prometheus_metrics["bucket_utilized_bytes"].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup, self.store, taglist],
+                b_metrics,
                 bucket_utilized_bytes,
             )
 
             self._prometheus_metrics["bucket_usage_objects"].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup, self.store, taglist],
+                b_metrics,
                 bucket_usage_objects,
             )
 
             if "bucket_quota" in bucket:
                 self._prometheus_metrics["bucket_quota_enabled"].add_metric(
-                    [bucket_name, bucket_owner, bucket_zonegroup, self.store, taglist],
+                    b_metrics,
                     bucket["bucket_quota"]["enabled"],
                 )
                 self._prometheus_metrics["bucket_quota_max_size"].add_metric(
-                    [bucket_name, bucket_owner, bucket_zonegroup, self.store, taglist],
+                    b_metrics,
                     bucket["bucket_quota"]["max_size"],
                 )
                 self._prometheus_metrics["bucket_quota_max_size_bytes"].add_metric(
-                    [bucket_name, bucket_owner, bucket_zonegroup, self.store, taglist],
+                    b_metrics,
                     bucket["bucket_quota"]["max_size_kb"] * 1024,
                 )
                 self._prometheus_metrics["bucket_quota_max_objects"].add_metric(
-                    [bucket_name, bucket_owner, bucket_zonegroup, self.store, taglist],
+                    b_metrics,
                     bucket["bucket_quota"]["max_objects"],
                 )
 
             self._prometheus_metrics["bucket_shards"].add_metric(
-                [bucket_name, bucket_owner, bucket_zonegroup, self.store, taglist],
+                b_metrics,
                 bucket_shards,
             )
 
@@ -576,6 +584,13 @@ def parse_args():
         help="Provide logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL",
         default=os.environ.get("LOG_LEVEL", "INFO"),
     )
+    parser.add_argument(
+        "-T",
+        "--tag-list",
+        required=False,
+        help="Add bucket tags as label (example: 'tag1,tag2,tag3') ",
+        default=os.environ.get("TAG_LIST", ""),
+    )
 
     return parser.parse_args()
 
@@ -593,6 +608,7 @@ def main():
                 args.store,
                 args.insecure,
                 args.timeout,
+                args.tag_list,
             )
         )
         start_http_server(args.port)

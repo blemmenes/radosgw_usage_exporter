@@ -90,6 +90,7 @@ pip install requirements.txt
 | `-S --store`       | STORE            | Store name added to metrics                                             | `us-east-1`         |
 | `-t --timeout`     | TIMEOUT          | Timeout when getting metrics                                            | `60`                |
 | `-l --log-level`   | LOG_LEVEL        | Provide logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL          | `INFO`              |
+| `-T --tag-list`    | TAG_LIST         | Add bucket tags as label (example: 'tag1,tag2,tag3')                    | ``                  |
 
 ### Example
 
