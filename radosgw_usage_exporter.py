@@ -611,7 +611,7 @@ def main():
                 args.tag_list,
             )
         )
-        start_http_server(args.port)
+        start_http_server(args.port, addr="::")
         logging.info(("Polling {0}. Serving at port: {1}".format(args.host, args.port)))
         while True:
             time.sleep(1)
