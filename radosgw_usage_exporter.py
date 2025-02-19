@@ -438,17 +438,8 @@ class RADOSGWCollector(object):
         """
         API request to get users.
         """
-
-        rgw_users = self._request_data(query="user", args="list")
-
-        if rgw_users and "keys" in rgw_users:
-            return rgw_users["keys"]
-        else:
-            # Compat with old Ceph versions (pre 12.2.13/13.2.9)
-            rgw_metadata_users = self._request_data(query="metadata/user", args="")
-            return rgw_metadata_users
-
-        return
+        rgw_metadata_users = self._request_data(query="metadata/user", args="")
+        return rgw_metadata_users
 
     def _get_user_info(self, user):
         """
