@@ -1,4 +1,4 @@
 prometheus-client==0.21.0
-requests==2.32.3
+requests==2.32.4
 boto==2.49.0
 requests-aws==0.1.8
