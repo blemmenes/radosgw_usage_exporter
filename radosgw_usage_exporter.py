@@ -8,6 +8,7 @@ import logging
 import json
 import argparse
 import os
+import re
 from awsauth import S3Auth
 from prometheus_client import start_http_server
 from collections import defaultdict, Counter
@@ -24,7 +25,7 @@ class RADOSGWCollector(object):
     of ceph.conf see Ceph documentation for details"""
 
     def __init__(
-        self, host, admin_entry, access_key, secret_key, store, insecure, timeout, tag_list
+        self, host, admin_entry, access_key, secret_key, store, insecure, timeout, tag_list, enable_namespace_extraction, obc_name_prefix
     ):
         super(RADOSGWCollector, self).__init__()
         self.host = host
@@ -34,6 +35,8 @@ class RADOSGWCollector(object):
         self.insecure = insecure
         self.timeout = timeout
         self.tag_list = tag_list
+        self.enable_namespace_extraction = enable_namespace_extraction
+        self.obc_name_prefix = obc_name_prefix
 
         # helpers for default schema
         if not self.host.startswith("http"):
@@ -142,7 +145,10 @@ class RADOSGWCollector(object):
         """
 
         b_labels = ["bucket", "owner", "category", "store"]
-        b_labels=b_labels+self.tag_list.split(",")
+        if self.tag_list:
+            b_labels = b_labels + self.tag_list.split(",")
+        if self.enable_namespace_extraction:
+            b_labels.append("namespace")
 
         self._prometheus_metrics = {
             "ops": CounterMetricFamily(
@@ -322,23 +328,36 @@ class RADOSGWCollector(object):
             for bucket_name in list(self.usage_dict[bucket_owner].keys()):
                 for category in list(self.usage_dict[bucket_owner][bucket_name].keys()):
                     data_dict = self.usage_dict[bucket_owner][bucket_name][category]
+
+                    # Build metrics labels to match the label schema
+                    u_metrics = [bucket_name, bucket_owner, category, self.store]
+
+                    # Add empty strings for tag labels (usage API doesn't provide tags)
+                    if self.tag_list:
+                        u_metrics = u_metrics + [""] * len(self.tag_list.split(","))
+
+                    # Add namespace if extraction is enabled
+                    if self.enable_namespace_extraction:
+                        bucket_namespace = get_bucket_namespace(bucket_name, bucket_owner, self.obc_name_prefix)
+                        u_metrics.append(bucket_namespace)
+
                     self._prometheus_metrics["ops"].add_metric(
-                        [bucket_name, bucket_owner, category, self.store],
+                        u_metrics,
                         data_dict["ops"],
                     )
 
                     self._prometheus_metrics["successful_ops"].add_metric(
-                        [bucket_name, bucket_owner, category, self.store],
+                        u_metrics,
                         data_dict["successful_ops"],
                     )
 
                     self._prometheus_metrics["bytes_sent"].add_metric(
-                        [bucket_name, bucket_owner, category, self.store],
+                        u_metrics,
                         data_dict["bytes_sent"],
                     )
 
                     self._prometheus_metrics["bytes_received"].add_metric(
-                        [bucket_name, bucket_owner, category, self.store],
+                        u_metrics,
                         data_dict["bytes_received"],
                     )
 
@@ -356,6 +375,8 @@ class RADOSGWCollector(object):
             bucket_usage_bytes = 0
             bucket_utilized_bytes = 0
             bucket_usage_objects = 0
+            if self.enable_namespace_extraction:
+                bucket_namespace = get_bucket_namespace(bucket_name, bucket_owner, self.obc_name_prefix)
 
             if bucket["usage"] and "rgw.main" in bucket["usage"]:
                 # Prefer bytes, instead kbytes
@@ -382,15 +403,16 @@ class RADOSGWCollector(object):
 
 
             taglist = []
-            if "tagset" in bucket:
-                bucket_tagset = bucket["tagset"]
-                if self.tag_list:
-                    for k in self.tag_list.split(","):
-                        if k in bucket_tagset:
-                            taglist.append(bucket_tagset[k])
+            if self.tag_list:
+                bucket_tagset = bucket.get("tagset", {})
+                for k in self.tag_list.split(","):
+                    taglist.append(bucket_tagset.get(k, ""))
 
             b_metrics = [bucket_name, bucket_owner, bucket_zonegroup, self.store]
-            b_metrics=b_metrics+taglist
+            if taglist:
+                b_metrics = b_metrics + taglist
+            if self.enable_namespace_extraction:
+                b_metrics.append(bucket_namespace)
 
             self._prometheus_metrics["bucket_usage_bytes"].add_metric(
                 b_metrics,
@@ -591,9 +613,115 @@ def parse_args():
         help="Add bucket tags as label (example: 'tag1,tag2,tag3') ",
         default=os.environ.get("TAG_LIST", ""),
     )
-
+    parser.add_argument(
+        "-N",
+        "--enable-namespace-extraction",
+        required=False,
+        help="Enable extraction of namespace from bucket owner and bucket name based on Rook user name generation.",
+        default=os.environ.get("ENABLE_NAMESPACE_EXTRACTION", "false").lower() == "true",
+    )
+    parser.add_argument(
+        "--obc-name-prefix",
+        required=False,
+        help="Prefix that may appear before obc.Name inside the bucket name when extracting namespace",
+        default=os.environ.get("OBC_NAME_PREFIX", ""),
+    )
     return parser.parse_args()
 
+def get_bucket_namespace(bucket_name, bucket_owner, obc_name_prefix):
+    """
+    Extract a Kubernetes namespace from a Rook-generated RGW user/bucket name.
+
+    Rook generates user names like:
+        obc-<namespace>-<obcName>-<uuid>
+
+    However, some deployments prepend a prefix to <obcName>, so:
+        obc-<namespace>-<prefix><obcName>-<uuid>
+
+    Parameters:
+        bucket_name (str): The bucket name, which typically equals <obcName>.
+        bucket_owner (str): The RGW user name, typically "obc-<ns>-<name>-<uuid>".
+        obc_name_prefix (str): Optional prefix added before obcName.
+
+    Returns:
+        str: The extracted namespace, or empty string if it cannot be determined.
+    """
+
+    def _strip_uuid_suffix(value):
+        """
+        Remove trailing '-<uuid>' from strings where <uuid> is a standard 36-char UUID.
+        """
+        if not value:
+            return value
+
+        uuid_len = 36
+        if len(value) <= uuid_len:
+            return value
+
+        possible_uuid = value[-uuid_len:]
+        if re.match(r"^[0-9a-f-]{36}$", possible_uuid, re.IGNORECASE):
+            # If there's a dash just before the UUID, remove it too
+            cut_index = -uuid_len - 1 if value[-uuid_len - 1] == "-" else -uuid_len
+            return value[:cut_index]
+
+        return value
+
+    # Ensure this is a Rook OBC-style user
+    if not bucket_owner.startswith("obc-"):
+        return ""
+
+    # Remove the "obc-" prefix
+    owner_no_prefix = _strip_uuid_suffix(bucket_owner[len("obc-"):])
+    cleaned_bucket_name = _strip_uuid_suffix(bucket_name)
+
+    # Construct possible suffix patterns
+    # Example:
+    #   "-mycustomprefixbucketname"
+    #   "-bucketname"
+    prefixed_bucket_suffix = f"-{obc_name_prefix}{cleaned_bucket_name}"
+    bucket_suffix = f"-{cleaned_bucket_name}"
+
+    # Case 1: Owner ends with prefix+bucket
+    if owner_no_prefix.endswith(prefixed_bucket_suffix):
+        return owner_no_prefix[: -len(prefixed_bucket_suffix)]
+
+    # Case 2: Owner ends with bucket (no prefix)
+    if owner_no_prefix.endswith(bucket_suffix):
+        return owner_no_prefix[: -len(bucket_suffix)]
+
+    # Case 3: Bucket occurs somewhere in the owner name
+    # Look for prefixed version first
+    idx = owner_no_prefix.find(prefixed_bucket_suffix)
+    if idx != -1:
+        return owner_no_prefix[:idx]
+
+    # Fallback: plain bucket name
+    idx = owner_no_prefix.find(bucket_suffix)
+    if idx != -1:
+        return owner_no_prefix[:idx]
+
+    # Case 4: Fuzzy matching - look for bucket name components
+    # Split bucket name by hyphens and try to find where these parts appear in owner
+    bucket_parts = cleaned_bucket_name.split("-")
+
+    # Try to find a sequence of bucket parts within the owner string
+    # This helps when bucket name is "cdp-staging-mongodb-backup"
+    # and owner is "obc-staging-cdp-mongodb-backup-<uuid>"
+    for i in range(len(bucket_parts)):
+        for j in range(i + 1, len(bucket_parts) + 1):
+            # Try progressively longer substrings from the bucket name
+            bucket_substring = "-".join(bucket_parts[i:j])
+            search_pattern = f"-{bucket_substring}"
+
+            idx = owner_no_prefix.find(search_pattern)
+            if idx != -1:
+                # Found a match - return everything before this match
+                namespace = owner_no_prefix[:idx]
+                # Make sure we have a valid namespace (at least one hyphen, meaning multiple parts)
+                if namespace and "-" in namespace:
+                    return namespace
+
+    return ""
 
 def main():
     try:
@@ -609,6 +737,8 @@ def main():
                 args.insecure,
                 args.timeout,
                 args.tag_list,
+                args.enable_namespace_extraction,
+                args.obc_name_prefix,
             )
         )
         start_http_server(args.port, addr="::")

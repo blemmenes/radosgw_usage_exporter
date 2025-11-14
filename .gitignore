@@ -1,2 +1,4 @@
 .vscode/launch.json
 __pycache__/
+.direnv
+.envrc
