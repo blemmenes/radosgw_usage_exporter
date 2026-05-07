@@ -8,6 +8,7 @@ import logging
 import json
 import argparse
 import os
+import threading
 from awsauth import S3Auth
 from prometheus_client import start_http_server
 from collections import defaultdict, Counter
@@ -24,7 +25,7 @@ class RADOSGWCollector(object):
     of ceph.conf see Ceph documentation for details"""
 
     def __init__(
-        self, host, admin_entry, access_key, secret_key, store, insecure, timeout, tag_list
+        self, host, admin_entry, access_key, secret_key, store, insecure, timeout, tag_list, refresh_interval
     ):
         super(RADOSGWCollector, self).__init__()
         self.host = host
@@ -34,6 +35,11 @@ class RADOSGWCollector(object):
         self.insecure = insecure
         self.timeout = timeout
         self.tag_list = tag_list
+        self.refresh_interval = refresh_interval
+
+        # Cache populated by background refresh thread; collect() reads it.
+        self._cache_lock = threading.Lock()
+        self._cached_metrics = None
 
         # helpers for default schema
         if not self.host.startswith("http"):
@@ -46,6 +52,54 @@ class RADOSGWCollector(object):
         # Prepare Requests Session
         self._session()
 
+        if self.refresh_interval > 0:
+            # Warm the cache synchronously so the first Prometheus scrape after
+            # the HTTP server comes up has data to return.
+            try:
+                self._refresh()
+            except Exception:
+                logging.exception("Initial cache warm failed; serving empty metrics until next refresh")
+            t = threading.Thread(target=self._refresh_loop, name="rgw-refresher", daemon=True)
+            t.start()
+
+    def _refresh_loop(self):
+        """Background loop: refresh the metric cache every refresh_interval seconds."""
+        while True:
+            time.sleep(self.refresh_interval)
+            try:
+                self._refresh()
+            except Exception:
+                logging.exception("Refresh failed; previous cache will be served until next refresh")
+
+    def _refresh(self):
+        """Fetch fresh data from RGW and atomically install it as the cached metric set."""
+        start = time.time()
+        self._setup_empty_prometheus_metrics(args="")
+        self.usage_dict = defaultdict(dict)
+
+        rgw_usage = self._request_data(query="usage", args="show-summary=False")
+        rgw_bucket = self._request_data(query="bucket", args="stats=True")
+        rgw_users = self._get_rgw_users()
+
+        if rgw_usage:
+            for entry in rgw_usage["entries"]:
+                self._get_usage(entry)
+            self._update_usage_metrics()
+        if rgw_bucket:
+            for bucket in rgw_bucket:
+                self._get_bucket_usage(bucket)
+        if rgw_users:
+            for user in rgw_users:
+                self._get_user_info(user)
+
+        duration = time.time() - start
+        self._prometheus_metrics["scrape_duration_seconds"].add_metric([], duration)
+
+        new_metrics = list(self._prometheus_metrics.values())
+        with self._cache_lock:
+            self._cached_metrics = new_metrics
+        logging.info("Refreshed metrics in %.2fs", duration)
+
     def collect(self):
         """
         * Collect 'usage' data:
@@ -54,27 +108,33 @@ class RADOSGWCollector(object):
             http://docs.ceph.com/docs/master/radosgw/adminops/#get-bucket-info
         """
 
-        start = time.time()
-        # setup empty prometheus metrics
-        self._setup_empty_prometheus_metrics(args="")
+        # Background-refresh mode: serve cached metrics, never fetch synchronously.
+        if self.refresh_interval > 0:
+            with self._cache_lock:
+                cached = self._cached_metrics
+            if cached is None:
+                logging.warning("collect() called but cache is empty")
+                return
+            for m in cached:
+                yield m
+            return
 
-        # setup dict for aggregating bucket usage accross "bins"
+        # Legacy synchronous mode (refresh_interval=0): fetch on every scrape.
+        start = time.time()
+        self._setup_empty_prometheus_metrics(args="")
         self.usage_dict = defaultdict(dict)
 
         rgw_usage = self._request_data(query="usage", args="show-summary=False")
         rgw_bucket = self._request_data(query="bucket", args="stats=True")
         rgw_users = self._get_rgw_users()
 
-        # populate metrics with data
         if rgw_usage:
             for entry in rgw_usage["entries"]:
                 self._get_usage(entry)
             self._update_usage_metrics()
-
         if rgw_bucket:
             for bucket in rgw_bucket:
                 self._get_bucket_usage(bucket)
-
         if rgw_users:
             for user in rgw_users:
                 self._get_user_info(user)
@@ -591,6 +651,14 @@ def parse_args():
         help="Add bucket tags as label (example: 'tag1,tag2,tag3') ",
         default=os.environ.get("TAG_LIST", ""),
     )
+    parser.add_argument(
+        "-r",
+        "--refresh-interval",
+        required=False,
+        type=int,
+        help="Background refresh interval in seconds. 0 = legacy per-scrape fetch. Default 60.",
+        default=int(os.environ.get("REFRESH_INTERVAL_SECONDS", "60")),
+    )
 
     return parser.parse_args()
 
@@ -609,6 +677,7 @@ def main():
                 args.insecure,
                 args.timeout,
                 args.tag_list,
+                args.refresh_interval,
             )
         )
         start_http_server(args.port, addr="::")

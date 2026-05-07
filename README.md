@@ -91,6 +91,19 @@ pip install requirements.txt
 | `-t --timeout`     | TIMEOUT          | Timeout when getting metrics                                            | `60`                |
 | `-l --log-level`   | LOG_LEVEL        | Provide logging level: DEBUG, INFO, WARNING, ERROR or CRITICAL          | `INFO`              |
 | `-T --tag-list`    | TAG_LIST         | Add bucket tags as label (example: 'tag1,tag2,tag3')                    | ``                  |
+| `-r --refresh-interval` | REFRESH_INTERVAL_SECONDS | Background refresh interval in seconds. `0` disables the cache and falls back to the legacy per-scrape fetch. | `60` |
+
+### Background refresh / cache
+
+When `--refresh-interval` (or `REFRESH_INTERVAL_SECONDS`) is greater than `0`
+(default `60`), the exporter fetches RGW data on a background timer and serves
+each Prometheus scrape from a cached snapshot. This decouples scrape latency
+from the cost of the underlying RGW admin API calls — useful on clusters where
+`bucket?stats=True` takes longer than the Prometheus `scrape_timeout` (typically
+10 s).
+
+Trade-off: metrics can be up to `REFRESH_INTERVAL_SECONDS` stale. Set the value
+to `0` to revert to the original synchronous behaviour.
 
 ### Example
 
