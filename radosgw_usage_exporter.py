@@ -439,16 +439,29 @@ class RADOSGWCollector(object):
         API request to get users.
         """
 
-        rgw_users = self._request_data(query="user", args="list")
+        users = []
+        marker = None
 
-        if rgw_users and "keys" in rgw_users:
-            return rgw_users["keys"]
-        else:
-            # Compat with old Ceph versions (pre 12.2.13/13.2.9)
-            rgw_metadata_users = self._request_data(query="metadata/user", args="")
-            return rgw_metadata_users
+        while True:
+            args = "list&max-entries=1000"
+            if marker:
+                args += "&marker={0}".format(marker)
 
-        return
+            rgw_users = self._request_data(query="user", args=args)
+
+            if rgw_users and "keys" in rgw_users:
+                users.extend(rgw_users["keys"])
+                if rgw_users.get("truncated"):
+                    marker = rgw_users["marker"]
+                else:
+                    break
+            else:
+                # Compat with old Ceph versions (pre 12.2.13/13.2.9)
+                # Those don't support marker pagination, return the full list directly
+                rgw_metadata_users = self._request_data(query="metadata/user", args="")
+                return rgw_metadata_users
+
+        return users
 
     def _get_user_info(self, user):
         """
